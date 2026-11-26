@@ -1,2 +1,4 @@
 github.com/barteo/kotlin-compiler-go v0.0.0-20261126195149-30a828d4ed91 h1:5XzbiEgr90q9MyxFOr9IXWfXwloJrnE0OygbduuXDqI=
 github.com/barteo/kotlin-compiler-go v0.0.0-20261126195149-30a828d4ed91/go.mod h1:k9JQVSfwCiRZ8XRwi9ZJSXglRRZlhifh+hdEYfxRecQ=
+github.com/barteo/kotlin-compiler-go v0.0.0-20261126214643-6a6f1ec8c817 h1:QJvrQSIP0sKS2zwQ9Ty1GlydNppeBltI1Edtl4q1GKs=
+github.com/barteo/kotlin-compiler-go v0.0.0-20261126214643-6a6f1ec8c817/go.mod h1:k9JQVSfwCiRZ8XRwi9ZJSXglRRZlhifh+hdEYfxRecQ=

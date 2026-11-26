@@ -102,6 +102,17 @@ func (a *Analysis) Node(id analysis.ElementID) (*File, psi.NodeRef, bool) {
 	return f, n, n.Valid()
 }
 
+// declared reports whether the symbol id is declared in the analysis's
+// files.
+func (a *Analysis) declared(id uint32) bool {
+	s, ok := a.Result.Symbol(id)
+	if !ok || s.Declaration == nil {
+		return false
+	}
+	_, _, ok = a.Node(*s.Declaration)
+	return ok
+}
+
 // Class returns the symbol of the class in the sources whose qualified
 // name is name.
 func (a *Analysis) Class(name string) (analysis.Symbol, bool) {
@@ -112,10 +123,14 @@ func (a *Analysis) Class(name string) (analysis.Symbol, bool) {
 			if !ok {
 				break
 			}
-			if s.Kind == "class" && s.QualifiedName != "" {
-				if _, dup := a.classes[s.QualifiedName]; !dup {
-					a.classes[s.QualifiedName] = id
-				}
+			if s.Kind != "class" || s.QualifiedName == "" {
+				continue
+			}
+			// An incremental update's Result may also have the symbol of
+			// a class an earlier version of a file declared: the one in
+			// the current sources wins.
+			if prev, dup := a.classes[s.QualifiedName]; !dup || !a.declared(prev) && a.declared(id) {
+				a.classes[s.QualifiedName] = id
 			}
 		}
 	})

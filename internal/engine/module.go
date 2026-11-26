@@ -3,6 +3,7 @@ package engine
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -15,6 +16,10 @@ import (
 	"github.com/barteo/kotlin-lsp-go/internal/project"
 )
 
+// incremental is unset by KCLS_INCREMENTAL=0: each analysis checks all
+// the module's files, as before sessions.
+var incremental = os.Getenv("KCLS_INCREMENTAL") != "0"
+
 // module is a module the engine analyzes.
 type module struct {
 	e    *Engine
@@ -25,6 +30,7 @@ type module struct {
 
 	libMu  sync.Mutex
 	lib    *analysis.Library
+	sess   *analysis.Session // the library's, which analyses update
 	libErr error
 	srcJar []string // sources jars and src.zip for its class path
 
@@ -33,13 +39,16 @@ type module struct {
 	srcsAt   time.Time
 	last     *features.Analysis
 	lastKey  []*features.File
+	lastGen  uint64 // the generation of the run that made last
 	running  *run
+	gen      uint64 // the last run's generation
 	analyses int
 }
 
 // run is an analysis of some files, which the requests for those files
 // share.
 type run struct {
+	gen    uint64 // runs started later have higher generations
 	key    []*features.File
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -120,6 +129,10 @@ func (m *module) close() {
 	m.mu.Unlock()
 	m.libMu.Lock()
 	defer m.libMu.Unlock()
+	if m.sess != nil {
+		m.sess.Close()
+		m.sess = nil
+	}
 	if m.lib != nil {
 		m.lib.Close()
 		m.lib = nil
@@ -175,12 +188,13 @@ func (m *module) config() analysis.Config {
 	return cfg
 }
 
-// library opens the module's class path, once.
-func (m *module) library() (*analysis.Library, error) {
+// library opens the module's class path, once, and the session its
+// analyses update.
+func (m *module) library() (*analysis.Library, *analysis.Session, error) {
 	m.libMu.Lock()
 	defer m.libMu.Unlock()
 	if m.lib != nil || m.libErr != nil {
-		return m.lib, m.libErr
+		return m.lib, m.sess, m.libErr
 	}
 	cfg := m.config()
 	start := time.Now()
@@ -192,11 +206,11 @@ func (m *module) library() (*analysis.Library, error) {
 	}
 	if err != nil {
 		m.libErr = err
-		return nil, err
+		return nil, nil, err
 	}
 	m.e.logf("engine: %s: opened %d class path entries in %v", m.pm.ID, len(cfg.ClassPath), time.Since(start).Round(time.Millisecond))
-	m.lib = lib
-	return lib, nil
+	m.lib, m.sess = lib, lib.Session()
+	return m.lib, m.sess, nil
 }
 
 // sources returns the source files of the module and of those it depends
@@ -267,16 +281,22 @@ func (m *module) analyze(ctx context.Context, path string) (*features.Analysis, 
 			return a, nil
 		}
 		r := m.running
-		if r == nil || !slices.Equal(r.key, files) {
-			if r != nil {
-				r.cancel() // out of date
-			}
+		stale := r != nil && !slices.Equal(r.key, files)
+		first := stale && m.last == nil
+		switch {
+		case first:
+			// The module's first analysis, which checks every file, is
+			// let finish: the next one starts from it.
+		case stale:
+			r.cancel() // out of date
+			r = m.start(files, own)
+		case r == nil:
 			r = m.start(files, own)
 		}
 		m.mu.Unlock()
 		select {
 		case <-r.done:
-			if r.err != nil && errors.Is(r.err, context.Canceled) && ctx.Err() == nil && m.e.ctx.Err() == nil {
+			if first || r.err != nil && errors.Is(r.err, context.Canceled) && ctx.Err() == nil && m.e.ctx.Err() == nil {
 				continue // superseded by newer files
 			}
 			return r.res, r.err
@@ -289,7 +309,8 @@ func (m *module) analyze(ctx context.Context, path string) (*features.Analysis, 
 // start starts analyzing files. The caller holds m.mu.
 func (m *module) start(files []*features.File, own []string) *run {
 	ctx, cancel := context.WithCancel(m.e.ctx)
-	r := &run{key: files, cancel: cancel, done: make(chan struct{})}
+	m.gen++
+	r := &run{gen: m.gen, key: files, cancel: cancel, done: make(chan struct{})}
 	m.running = r
 	m.analyses++
 	go func() {
@@ -299,8 +320,9 @@ func (m *module) start(files []*features.File, own []string) *run {
 		if m.running == r {
 			m.running = nil
 		}
-		if err == nil {
-			m.last, m.lastKey = res, files
+		if err == nil && r.gen > m.lastGen {
+			// A run that finishes after a later one doesn't replace it.
+			m.last, m.lastKey, m.lastGen = res, files, r.gen
 		}
 		m.mu.Unlock()
 		r.res, r.err = res, err
@@ -311,7 +333,7 @@ func (m *module) start(files []*features.File, own []string) *run {
 
 // run analyzes files; complete, if it isn't nil, asks for a completion.
 func (m *module) run(ctx context.Context, files []*features.File, own []string, complete *analysis.Complete) (*features.Analysis, error) {
-	lib, err := m.library()
+	lib, sess, err := m.library()
 	if err != nil {
 		return nil, err
 	}
@@ -330,7 +352,17 @@ func (m *module) run(ctx context.Context, files []*features.File, own []string, 
 		snaps = append(snaps, f.Snapshot)
 	}
 	start := time.Now()
-	res, err := lib.Analyze(ctx, snaps, opts)
+	var res *analysis.Result
+	how := ""
+	if incremental && complete == nil {
+		before := sess.Stats().Incremental
+		res, err = sess.Update(ctx, snaps, opts)
+		if sess.Stats().Incremental > before {
+			how = " (incremental)"
+		}
+	} else {
+		res, err = lib.Analyze(ctx, snaps, opts)
+	}
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			m.e.logf("engine: %s: %v", m.pm.ID, err)
@@ -338,7 +370,7 @@ func (m *module) run(ctx context.Context, files []*features.File, own []string, 
 		return nil, err
 	}
 	if complete == nil {
-		m.e.logf("engine: %s: analyzed %d files in %v", m.pm.ID, len(kt), time.Since(start).Round(time.Millisecond))
+		m.e.logf("engine: %s: analyzed %d files%s in %v", m.pm.ID, len(kt), how, time.Since(start).Round(time.Millisecond))
 	} else {
 		m.e.logf("engine: %s: completion in %v", m.pm.ID, time.Since(start).Round(time.Millisecond))
 	}
@@ -395,7 +427,11 @@ func siblingSources(jar string) []string {
 }
 
 // Stats are counters for tests and logs.
-type Stats struct{ Analyses int }
+type Stats struct {
+	// Analyses are the analyses started, but completions; Incremental
+	// the updates of the module's session that checked only some files.
+	Analyses, Incremental int
+}
 
 // Stats returns the counters of the module of path.
 func (e *Engine) Stats(path string) (Stats, error) {
@@ -403,7 +439,14 @@ func (e *Engine) Stats(path string) (Stats, error) {
 	if err != nil {
 		return Stats{}, err
 	}
+	m.libMu.Lock()
+	sess := m.sess
+	m.libMu.Unlock()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return Stats{Analyses: m.analyses}, nil
+	st := Stats{Analyses: m.analyses}
+	if sess != nil {
+		st.Incremental = int(sess.Stats().Incremental)
+	}
+	return st, nil
 }

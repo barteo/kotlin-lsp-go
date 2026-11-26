@@ -3,6 +3,7 @@ package engine
 import (
 	"archive/zip"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -357,5 +358,82 @@ func TestRoots(t *testing.T) {
 	}
 	if d := features.Diagnostics(a, a.File(path)); len(d) == 0 {
 		t.Error("Greeter still resolves after lib's folder is removed")
+	}
+}
+
+// TestIncremental checks that an edit after the module's first analysis
+// updates its session incrementally, with the diagnostics an analysis of
+// all the files has, and that a declaration edit reaches the files that
+// use the declaration.
+func TestIncremental(t *testing.T) {
+	needStdlib(t)
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	files := map[string]string{
+		"kcls.json": `{"modules": [{"name": "m", "roots": ["src"], "noJdk": true}]}`,
+		"src/A.kt":  "package m\n\nfun twice(n: Int): Int {\n    return n * 2\n}\n",
+		"src/B.kt":  "package m\n\nfun useTwice(): Int = twice(1)\n",
+		"src/C.kt":  "package m\n\nfun alone(): Int {\n    val unused = 1\n    return 3\n}\n",
+	}
+	// Files a declaration edit of A.kt doesn't affect, so that it doesn't
+	// affect most of the module's, which an update checks whole.
+	for i := range 4 {
+		files[fmt.Sprintf("src/F%d.kt", i)] = fmt.Sprintf("package m\n\nfun filler%d(): Int = %d\n", i, i)
+	}
+	write(t, root, files)
+	e := newEngine(t, root)
+	ctx := context.Background()
+	a := filepath.Join(root, "src/A.kt")
+	if _, err := e.Analyze(ctx, a); err != nil {
+		t.Fatal(err)
+	}
+	// diagnostics returns each file's diagnostics, as text.
+	diagnostics := func(an *features.Analysis) map[string]string {
+		out := map[string]string{}
+		for _, f := range an.Files() {
+			var lines []string
+			for _, d := range features.Diagnostics(an, f) {
+				lines = append(lines, fmt.Sprintf("%d:%d %s", d.Range.Start.Line, d.Range.Start.Character, d.Message))
+			}
+			out[filepath.Base(f.Snapshot.Path())] = strings.Join(lines, "; ")
+		}
+		return out
+	}
+	// whole returns the diagnostics of an analysis of all the files.
+	whole := func() map[string]string {
+		incremental = false
+		defer func() { incremental = true }()
+		w := newEngine(t, root)
+		an, err := w.Analyze(ctx, a)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return diagnostics(an)
+	}
+	steps := []struct {
+		name, file, text string
+		want             string // a diagnostic of B.kt, if any
+	}{
+		{"body edit", "src/C.kt", "package m\n\nfun alone(): Int {\n    val unused = 1\n    return undefinedName\n}\n", ""},
+		{"declaration edit", "src/A.kt", "package m\n\nfun twice(n: Int, k: Int): Int {\n    return n * k\n}\n", "no function 'twice' takes 1 arguments"},
+		{"declaration fixed", "src/A.kt", files["src/A.kt"], ""},
+	}
+	for i, st := range steps {
+		time.Sleep(10 * time.Millisecond)
+		write(t, root, map[string]string{st.file: st.text})
+		an, err := e.Analyze(ctx, a)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stats, _ := e.Stats(a)
+		if stats.Incremental != i+1 {
+			t.Errorf("%s: %d incremental updates, want %d", st.name, stats.Incremental, i+1)
+		}
+		got, want := diagnostics(an), whole()
+		if fmt.Sprint(got) != fmt.Sprint(want) {
+			t.Errorf("%s: diagnostics\n got  %v\n want %v", st.name, got, want)
+		}
+		if b := got["B.kt"]; (st.want == "") != (b == "") || !strings.Contains(b, st.want) {
+			t.Errorf("%s: B.kt's diagnostics %q, want %q", st.name, b, st.want)
+		}
 	}
 }
