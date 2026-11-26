@@ -49,6 +49,18 @@ func CodeActions(ctx context.Context, a *Analysis, c Completer, f *File, r proto
 			}
 		}
 	}
+	if a != nil && (want(protocol.RefactorExtract) || want(protocol.RefactorInline)) {
+		if start, end, err := f.Mapper.OffsetRange(r); err == nil {
+			if act, ok := ac.extractVariable(start, end); ok && want(protocol.RefactorExtract) {
+				act.Kind = protocol.RefactorExtract
+				out = append(out, act)
+			}
+			if act, ok := ac.inlineVariable(start); ok && want(protocol.RefactorInline) {
+				act.Kind = protocol.RefactorInline
+				out = append(out, act)
+			}
+		}
+	}
 	if want(protocol.SourceOrganizeImports) {
 		if edits := OrganizeImports(f); len(edits) > 0 {
 			out = append(out, protocol.CodeAction{Title: "Organize imports", Kind: protocol.SourceOrganizeImports, Edit: ac.edit(edits...)})

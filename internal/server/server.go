@@ -269,6 +269,9 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 	case "textDocument/inlayHint", "textDocument/codeAction":
 		return s.actions(ctx, req)
 
+	case "textDocument/formatting", "textDocument/rangeFormatting", "textDocument/onTypeFormatting", "workspace/willRenameFiles":
+		return s.formatting(ctx, req)
+
 	case "textDocument/references", "textDocument/implementation", "textDocument/prepareRename", "textDocument/rename",
 		"textDocument/prepareCallHierarchy", "textDocument/prepareTypeHierarchy",
 		"callHierarchy/incomingCalls", "callHierarchy/outgoingCalls", "typeHierarchy/supertypes", "typeHierarchy/subtypes",
@@ -464,11 +467,19 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 			SignatureHelpProvider:     &protocol.SignatureHelpOptions{TriggerCharacters: []string{"(", ","}, RetriggerCharacters: []string{")"}},
 			InlayHintProvider:         true,
 			CodeActionProvider: &protocol.CodeActionOptions{
-				CodeActionKinds: []string{protocol.QuickFix, protocol.RefactorRewrite, protocol.SourceOrganizeImports},
+				CodeActionKinds: []string{protocol.QuickFix, protocol.RefactorRewrite, protocol.RefactorExtract, protocol.RefactorInline,
+					protocol.SourceOrganizeImports},
 			},
-			ExecuteCommandProvider: &protocol.ExecuteCommandOptions{Commands: commands},
+			DocumentFormattingProvider:       true,
+			DocumentRangeFormattingProvider:  true,
+			DocumentOnTypeFormattingProvider: &protocol.DocumentOnTypeFormattingOptions{FirstTriggerCharacter: "}", MoreTriggerCharacter: []string{";", "\n"}},
+			ExecuteCommandProvider:           &protocol.ExecuteCommandOptions{Commands: commands},
 			Workspace: &protocol.WorkspaceOptions{
 				WorkspaceFolders: &protocol.WorkspaceFoldersServerCapabilities{Supported: true, ChangeNotifications: true},
+				FileOperations: &protocol.FileOperationOptions{WillRename: &protocol.FileOperationRegistrationOptions{Filters: []protocol.FileOperationFilter{
+					{Scheme: "file", Pattern: protocol.FileOperationPattern{Glob: "**/*.kt", Matches: "file"}},
+					{Scheme: "file", Pattern: protocol.FileOperationPattern{Glob: "**", Matches: "folder"}},
+				}}},
 			},
 		},
 	}

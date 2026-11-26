@@ -187,29 +187,32 @@ type TextDocumentSyncOptions struct {
 }
 
 type ServerCapabilities struct {
-	PositionEncoding          string                   `json:"positionEncoding,omitempty"`
-	TextDocumentSync          *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
-	DocumentSymbolProvider    bool                     `json:"documentSymbolProvider,omitempty"`
-	FoldingRangeProvider      bool                     `json:"foldingRangeProvider,omitempty"`
-	SelectionRangeProvider    bool                     `json:"selectionRangeProvider,omitempty"`
-	SemanticTokensProvider    *SemanticTokensOptions   `json:"semanticTokensProvider,omitempty"`
-	DiagnosticProvider        *DiagnosticOptions       `json:"diagnosticProvider,omitempty"`
-	HoverProvider             bool                     `json:"hoverProvider,omitempty"`
-	DefinitionProvider        bool                     `json:"definitionProvider,omitempty"`
-	TypeDefinitionProvider    bool                     `json:"typeDefinitionProvider,omitempty"`
-	DocumentHighlightProvider bool                     `json:"documentHighlightProvider,omitempty"`
-	CompletionProvider        *CompletionOptions       `json:"completionProvider,omitempty"`
-	SignatureHelpProvider     *SignatureHelpOptions    `json:"signatureHelpProvider,omitempty"`
-	ReferencesProvider        bool                     `json:"referencesProvider,omitempty"`
-	ImplementationProvider    bool                     `json:"implementationProvider,omitempty"`
-	RenameProvider            *RenameOptions           `json:"renameProvider,omitempty"`
-	CallHierarchyProvider     bool                     `json:"callHierarchyProvider,omitempty"`
-	TypeHierarchyProvider     bool                     `json:"typeHierarchyProvider,omitempty"`
-	WorkspaceSymbolProvider   bool                     `json:"workspaceSymbolProvider,omitempty"`
-	ExecuteCommandProvider    *ExecuteCommandOptions   `json:"executeCommandProvider,omitempty"`
-	InlayHintProvider         bool                     `json:"inlayHintProvider,omitempty"`
-	CodeActionProvider        *CodeActionOptions       `json:"codeActionProvider,omitempty"`
-	Workspace                 *WorkspaceOptions        `json:"workspace,omitempty"`
+	PositionEncoding                 string                           `json:"positionEncoding,omitempty"`
+	TextDocumentSync                 *TextDocumentSyncOptions         `json:"textDocumentSync,omitempty"`
+	DocumentSymbolProvider           bool                             `json:"documentSymbolProvider,omitempty"`
+	FoldingRangeProvider             bool                             `json:"foldingRangeProvider,omitempty"`
+	SelectionRangeProvider           bool                             `json:"selectionRangeProvider,omitempty"`
+	SemanticTokensProvider           *SemanticTokensOptions           `json:"semanticTokensProvider,omitempty"`
+	DiagnosticProvider               *DiagnosticOptions               `json:"diagnosticProvider,omitempty"`
+	HoverProvider                    bool                             `json:"hoverProvider,omitempty"`
+	DefinitionProvider               bool                             `json:"definitionProvider,omitempty"`
+	TypeDefinitionProvider           bool                             `json:"typeDefinitionProvider,omitempty"`
+	DocumentHighlightProvider        bool                             `json:"documentHighlightProvider,omitempty"`
+	CompletionProvider               *CompletionOptions               `json:"completionProvider,omitempty"`
+	SignatureHelpProvider            *SignatureHelpOptions            `json:"signatureHelpProvider,omitempty"`
+	ReferencesProvider               bool                             `json:"referencesProvider,omitempty"`
+	ImplementationProvider           bool                             `json:"implementationProvider,omitempty"`
+	RenameProvider                   *RenameOptions                   `json:"renameProvider,omitempty"`
+	CallHierarchyProvider            bool                             `json:"callHierarchyProvider,omitempty"`
+	TypeHierarchyProvider            bool                             `json:"typeHierarchyProvider,omitempty"`
+	WorkspaceSymbolProvider          bool                             `json:"workspaceSymbolProvider,omitempty"`
+	ExecuteCommandProvider           *ExecuteCommandOptions           `json:"executeCommandProvider,omitempty"`
+	InlayHintProvider                bool                             `json:"inlayHintProvider,omitempty"`
+	CodeActionProvider               *CodeActionOptions               `json:"codeActionProvider,omitempty"`
+	DocumentFormattingProvider       bool                             `json:"documentFormattingProvider,omitempty"`
+	DocumentRangeFormattingProvider  bool                             `json:"documentRangeFormattingProvider,omitempty"`
+	DocumentOnTypeFormattingProvider *DocumentOnTypeFormattingOptions `json:"documentOnTypeFormattingProvider,omitempty"`
+	Workspace                        *WorkspaceOptions                `json:"workspace,omitempty"`
 }
 
 type ExecuteCommandOptions struct {
@@ -218,6 +221,70 @@ type ExecuteCommandOptions struct {
 
 type WorkspaceOptions struct {
 	WorkspaceFolders *WorkspaceFoldersServerCapabilities `json:"workspaceFolders,omitempty"`
+	FileOperations   *FileOperationOptions               `json:"fileOperations,omitempty"`
+}
+
+// File operations.
+
+type FileOperationOptions struct {
+	WillRename *FileOperationRegistrationOptions `json:"willRename,omitempty"`
+}
+
+type FileOperationRegistrationOptions struct {
+	Filters []FileOperationFilter `json:"filters"`
+}
+
+type FileOperationFilter struct {
+	Scheme  string               `json:"scheme,omitempty"`
+	Pattern FileOperationPattern `json:"pattern"`
+}
+
+// FileOperationPattern's Matches is "file" or "folder".
+type FileOperationPattern struct {
+	Glob    string `json:"glob"`
+	Matches string `json:"matches,omitempty"`
+}
+
+type RenameFilesParams struct {
+	Files []FileRename `json:"files"`
+}
+
+type FileRename struct {
+	OldURI DocumentURI `json:"oldUri"`
+	NewURI DocumentURI `json:"newUri"`
+}
+
+// Formatting.
+
+type DocumentOnTypeFormattingOptions struct {
+	FirstTriggerCharacter string   `json:"firstTriggerCharacter"`
+	MoreTriggerCharacter  []string `json:"moreTriggerCharacter,omitempty"`
+}
+
+type FormattingOptions struct {
+	TabSize                uint32 `json:"tabSize"`
+	InsertSpaces           bool   `json:"insertSpaces"`
+	TrimTrailingWhitespace bool   `json:"trimTrailingWhitespace,omitempty"`
+	InsertFinalNewline     bool   `json:"insertFinalNewline,omitempty"`
+	TrimFinalNewlines      bool   `json:"trimFinalNewlines,omitempty"`
+}
+
+type DocumentFormattingParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Options      FormattingOptions      `json:"options"`
+}
+
+type DocumentRangeFormattingParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Range        Range                  `json:"range"`
+	Options      FormattingOptions      `json:"options"`
+}
+
+type DocumentOnTypeFormattingParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Position     Position               `json:"position"`
+	Ch           string                 `json:"ch"`
+	Options      FormattingOptions      `json:"options"`
 }
 
 type WorkspaceFoldersServerCapabilities struct {
@@ -796,6 +863,8 @@ type InlayHint struct {
 const (
 	QuickFix              = "quickfix"
 	RefactorRewrite       = "refactor.rewrite"
+	RefactorExtract       = "refactor.extract"
+	RefactorInline        = "refactor.inline"
 	SourceOrganizeImports = "source.organizeImports"
 )
 
