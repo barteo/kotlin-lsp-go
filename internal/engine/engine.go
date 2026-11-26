@@ -13,6 +13,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/barteo/kotlin-compiler-go/analysis"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -404,4 +405,27 @@ func within(path, dir string) bool {
 func exists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+// Complete analyzes the module of the file f stands for, with f in its
+// place, and asks the analysis what the code could name at c's
+// placeholder, which f has: see analysis.Complete. The analysis isn't
+// kept.
+func (e *Engine) Complete(ctx context.Context, f *features.File, c *analysis.Complete) (*features.Analysis, error) {
+	path := f.Snapshot.Path()
+	m, err := e.module(ctx, path)
+	if err != nil {
+		return nil, err
+	}
+	files, own, err := m.files(path)
+	if err != nil {
+		return nil, err
+	}
+	files = slices.Clone(files)
+	for i, g := range files {
+		if g.Snapshot.Path() == path {
+			files[i] = f
+		}
+	}
+	return m.run(ctx, files, own, c)
 }

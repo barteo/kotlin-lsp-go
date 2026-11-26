@@ -506,13 +506,29 @@ func params(c *analysis.Call) string {
 		}
 		s := RenderType(p, false)
 		if i < len(c.Varargs) && c.Varargs[i] {
-			s = "vararg " + name + ": " + s
+			s = "vararg " + name + ": " + RenderType(varargElement(p), false)
 		} else if name != "" {
 			s = name + ": " + s
 		}
 		ps = append(ps, s)
 	}
 	return "(" + strings.Join(ps, ", ") + ")"
+}
+
+// varargElement returns the element type of a vararg parameter's array
+// type: T of Array<out T>, Int of IntArray.
+func varargElement(t analysis.Type) analysis.Type {
+	switch {
+	case t.Name == "kotlin.Array" && len(t.Arguments) == 1:
+		e := t.Arguments[0]
+		e.Projection = ""
+		return e
+	case strings.HasPrefix(t.Name, "kotlin.") && strings.HasSuffix(t.Name, "Array") && len(t.Arguments) == 0:
+		if e := strings.TrimSuffix(t.Name, "Array"); e != "kotlin." {
+			return analysis.Type{Name: e}
+		}
+	}
+	return t
 }
 
 // RenderType renders a type as Kotlin writes it, with simple names, or

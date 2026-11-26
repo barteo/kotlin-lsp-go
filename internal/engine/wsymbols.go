@@ -241,3 +241,33 @@ func (ix *symbolIndex) clear() {
 	ix.files = map[string]fileSymbols{}
 	ix.jars = map[string]*jarClasses{}
 }
+
+// LibraryClasses returns the binary names of the top-level classes of the
+// libraries of the module of the file at path, and of its JDK's src.zip,
+// whose simple names match.
+func (e *Engine) LibraryClasses(ctx context.Context, path string, match func(simple string) bool) []string {
+	m, err := e.module(ctx, path)
+	if err != nil {
+		return nil
+	}
+	jars := slices.Clone(m.pm.ClassPath)
+	for _, j := range m.sourceJars() {
+		if strings.HasSuffix(j, "src.zip") {
+			jars = append(jars, j)
+		}
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, jar := range jars {
+		if !strings.HasSuffix(jar, ".jar") && !strings.HasSuffix(jar, ".zip") {
+			continue
+		}
+		for _, bin := range e.symbols.classes(jar) {
+			if !seen[bin] && match(bin[strings.LastIndexByte(bin, '/')+1:]) {
+				seen[bin] = true
+				out = append(out, bin)
+			}
+		}
+	}
+	return out
+}

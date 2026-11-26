@@ -69,6 +69,8 @@ type Server struct {
 	watchFiles          bool
 	linkSupport         bool // definition
 	typeLinkSupport     bool // typeDefinition
+	completionOpts      features.CompletionOptions
+	labelOffsets        bool // signature help's parameter labels
 	refreshDiagnostics  bool
 	refreshTokens       bool
 	workDoneProgress    bool
@@ -240,6 +242,9 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 		}
 		return s.semantic(ctx, req.Method, p)
 
+	case "textDocument/completion", "completionItem/resolve", "textDocument/signatureHelp":
+		return s.completion(ctx, req)
+
 	case "textDocument/references", "textDocument/implementation", "textDocument/prepareRename", "textDocument/rename",
 		"textDocument/prepareCallHierarchy", "textDocument/prepareTypeHierarchy",
 		"callHierarchy/incomingCalls", "callHierarchy/outgoingCalls", "typeHierarchy/supertypes", "typeHierarchy/subtypes",
@@ -360,6 +365,12 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 		s.pullDiagnostics = td.Diagnostic != nil
 		s.linkSupport = td.Definition != nil && td.Definition.LinkSupport
 		s.typeLinkSupport = td.TypeDefinition != nil && td.TypeDefinition.LinkSupport
+		if c := td.Completion; c != nil && c.CompletionItem != nil {
+			s.completionOpts = features.CompletionOptions{Snippets: c.CompletionItem.SnippetSupport, DeprecatedTag: c.CompletionItem.TagSupport != nil}
+		}
+		if h := td.SignatureHelp; h != nil && h.SignatureInformation != nil && h.SignatureInformation.ParameterInformation != nil {
+			s.labelOffsets = h.SignatureInformation.ParameterInformation.LabelOffsetSupport
+		}
 	}
 	if ws := caps.Workspace; ws != nil {
 		s.watchFiles = ws.DidChangeWatchedFiles != nil && ws.DidChangeWatchedFiles.DynamicRegistration
@@ -422,6 +433,8 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 			CallHierarchyProvider:     true,
 			TypeHierarchyProvider:     true,
 			WorkspaceSymbolProvider:   true,
+			CompletionProvider:        &protocol.CompletionOptions{TriggerCharacters: []string{".", ":", "@"}, ResolveProvider: true},
+			SignatureHelpProvider:     &protocol.SignatureHelpOptions{TriggerCharacters: []string{"(", ","}, RetriggerCharacters: []string{")"}},
 			ExecuteCommandProvider:    &protocol.ExecuteCommandOptions{Commands: commands},
 			Workspace: &protocol.WorkspaceOptions{
 				WorkspaceFolders: &protocol.WorkspaceFoldersServerCapabilities{Supported: true, ChangeNotifications: true},

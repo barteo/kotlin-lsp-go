@@ -251,7 +251,7 @@ func (m *module) start(files []*features.File, own []string) *run {
 	m.analyses++
 	go func() {
 		defer cancel()
-		res, err := m.run(ctx, files, own)
+		res, err := m.run(ctx, files, own, nil)
 		m.mu.Lock()
 		if m.running == r {
 			m.running = nil
@@ -266,12 +266,13 @@ func (m *module) start(files []*features.File, own []string) *run {
 	return r
 }
 
-func (m *module) run(ctx context.Context, files []*features.File, own []string) (*features.Analysis, error) {
+// run analyzes files; complete, if it isn't nil, asks for a completion.
+func (m *module) run(ctx context.Context, files []*features.File, own []string, complete *analysis.Complete) (*features.Analysis, error) {
 	lib, err := m.library()
 	if err != nil {
 		return nil, err
 	}
-	var opts = analysis.Options{Warnings: true}
+	var opts = analysis.Options{Warnings: complete == nil, Complete: complete}
 	var kt []*features.File
 	for _, f := range files {
 		switch filepath.Ext(f.Snapshot.Path()) {
@@ -293,7 +294,11 @@ func (m *module) run(ctx context.Context, files []*features.File, own []string) 
 		}
 		return nil, err
 	}
-	m.e.logf("engine: %s: analyzed %d files in %v", m.pm.ID, len(kt), time.Since(start).Round(time.Millisecond))
+	if complete == nil {
+		m.e.logf("engine: %s: analyzed %d files in %v", m.pm.ID, len(kt), time.Since(start).Round(time.Millisecond))
+	} else {
+		m.e.logf("engine: %s: completion in %v", m.pm.ID, time.Since(start).Round(time.Millisecond))
+	}
 	var libs features.Libraries
 	if jars := m.sourceJars(); len(jars) > 0 {
 		libs = m.e.libs.forJars(jars, m.e.opts.Files)

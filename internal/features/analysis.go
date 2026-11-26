@@ -2,6 +2,8 @@ package features
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"strings"
 	"sync"
 
@@ -74,6 +76,15 @@ func NewAnalysis(res *analysis.Result, module string, files []*File, own []strin
 
 // File returns the analyzed file at path, or nil.
 func (a *Analysis) File(path string) *File { return a.files[path] }
+
+// Files returns the analyzed files, by path.
+func (a *Analysis) Files() []*File {
+	out := make([]*File, 0, len(a.files))
+	for _, p := range slices.Sorted(maps.Keys(a.files)) {
+		out = append(out, a.files[p])
+	}
+	return out
+}
 
 // FileOf returns the analyzed file of a snapshot, or nil.
 func (a *Analysis) FileOf(id psi.SnapshotID) *File { return a.byID[id] }

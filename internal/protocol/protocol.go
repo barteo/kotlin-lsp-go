@@ -99,6 +99,41 @@ type TextDocumentClientCapabilities struct {
 	Definition     *LinkClientCapabilities           `json:"definition,omitempty"`
 	TypeDefinition *LinkClientCapabilities           `json:"typeDefinition,omitempty"`
 	Implementation *LinkClientCapabilities           `json:"implementation,omitempty"`
+	Completion     *CompletionClientCapabilities     `json:"completion,omitempty"`
+	SignatureHelp  *SignatureHelpClientCapabilities  `json:"signatureHelp,omitempty"`
+}
+
+type CompletionClientCapabilities struct {
+	CompletionItem *CompletionItemClientCapabilities `json:"completionItem,omitempty"`
+}
+
+type CompletionItemClientCapabilities struct {
+	SnippetSupport      bool               `json:"snippetSupport,omitempty"`
+	DeprecatedSupport   bool               `json:"deprecatedSupport,omitempty"`
+	TagSupport          *ValueSet          `json:"tagSupport,omitempty"`
+	LabelDetailsSupport bool               `json:"labelDetailsSupport,omitempty"`
+	ResolveSupport      *PropertiesSupport `json:"resolveSupport,omitempty"`
+}
+
+type ValueSet struct {
+	ValueSet []int `json:"valueSet"`
+}
+
+type PropertiesSupport struct {
+	Properties []string `json:"properties"`
+}
+
+type SignatureHelpClientCapabilities struct {
+	SignatureInformation *SignatureInformationClientCapabilities `json:"signatureInformation,omitempty"`
+}
+
+type SignatureInformationClientCapabilities struct {
+	ParameterInformation   *ParameterInformationClientCapabilities `json:"parameterInformation,omitempty"`
+	ActiveParameterSupport bool                                    `json:"activeParameterSupport,omitempty"`
+}
+
+type ParameterInformationClientCapabilities struct {
+	LabelOffsetSupport bool `json:"labelOffsetSupport,omitempty"`
 }
 
 type HoverClientCapabilities struct {
@@ -162,6 +197,8 @@ type ServerCapabilities struct {
 	DefinitionProvider        bool                     `json:"definitionProvider,omitempty"`
 	TypeDefinitionProvider    bool                     `json:"typeDefinitionProvider,omitempty"`
 	DocumentHighlightProvider bool                     `json:"documentHighlightProvider,omitempty"`
+	CompletionProvider        *CompletionOptions       `json:"completionProvider,omitempty"`
+	SignatureHelpProvider     *SignatureHelpOptions    `json:"signatureHelpProvider,omitempty"`
 	ReferencesProvider        bool                     `json:"referencesProvider,omitempty"`
 	ImplementationProvider    bool                     `json:"implementationProvider,omitempty"`
 	RenameProvider            *RenameOptions           `json:"renameProvider,omitempty"`
@@ -605,4 +642,124 @@ type CallHierarchyOutgoingCall struct {
 
 type WorkspaceSymbolParams struct {
 	Query string `json:"query"`
+}
+
+// ---- completion and signature help ----
+
+type CompletionOptions struct {
+	TriggerCharacters []string `json:"triggerCharacters,omitempty"`
+	ResolveProvider   bool     `json:"resolveProvider,omitempty"`
+}
+
+type SignatureHelpOptions struct {
+	TriggerCharacters   []string `json:"triggerCharacters,omitempty"`
+	RetriggerCharacters []string `json:"retriggerCharacters,omitempty"`
+}
+
+type CompletionContext struct {
+	TriggerKind      int    `json:"triggerKind"`
+	TriggerCharacter string `json:"triggerCharacter,omitempty"`
+}
+
+type CompletionParams struct {
+	TextDocumentPositionParams
+	Context *CompletionContext `json:"context,omitempty"`
+}
+
+type CompletionItemKind int
+
+const (
+	CompletionText          CompletionItemKind = 1
+	CompletionMethod        CompletionItemKind = 2
+	CompletionFunction      CompletionItemKind = 3
+	CompletionConstructor   CompletionItemKind = 4
+	CompletionField         CompletionItemKind = 5
+	CompletionVariable      CompletionItemKind = 6
+	CompletionClass         CompletionItemKind = 7
+	CompletionInterface     CompletionItemKind = 8
+	CompletionModule        CompletionItemKind = 9
+	CompletionProperty      CompletionItemKind = 10
+	CompletionEnum          CompletionItemKind = 13
+	CompletionKeyword       CompletionItemKind = 14
+	CompletionSnippet       CompletionItemKind = 15
+	CompletionEnumMember    CompletionItemKind = 20
+	CompletionConstant      CompletionItemKind = 21
+	CompletionStruct        CompletionItemKind = 22
+	CompletionTypeParameter CompletionItemKind = 25
+)
+
+const (
+	PlainTextFormat = 1
+	SnippetFormat   = 2
+)
+
+type CompletionItemLabelDetails struct {
+	Detail      string `json:"detail,omitempty"`
+	Description string `json:"description,omitempty"`
+}
+
+type CompletionItem struct {
+	Label               string                      `json:"label"`
+	LabelDetails        *CompletionItemLabelDetails `json:"labelDetails,omitempty"`
+	Kind                CompletionItemKind          `json:"kind,omitempty"`
+	Tags                []int                       `json:"tags,omitempty"`
+	Detail              string                      `json:"detail,omitempty"`
+	Documentation       *MarkupContent              `json:"documentation,omitempty"`
+	Deprecated          bool                        `json:"deprecated,omitempty"`
+	Preselect           bool                        `json:"preselect,omitempty"`
+	SortText            string                      `json:"sortText,omitempty"`
+	FilterText          string                      `json:"filterText,omitempty"`
+	InsertTextFormat    int                         `json:"insertTextFormat,omitempty"`
+	InsertTextMode      int                         `json:"insertTextMode,omitempty"`
+	TextEdit            *TextEdit                   `json:"textEdit,omitempty"`
+	AdditionalTextEdits []TextEdit                  `json:"additionalTextEdits,omitempty"`
+	Command             *Command                    `json:"command,omitempty"`
+	Data                json.RawMessage             `json:"data,omitempty"`
+}
+
+// InsertAsIs is the InsertTextMode of a completion whose text's
+// indentation is as written.
+const InsertAsIs = 1
+
+type Command struct {
+	Title     string `json:"title"`
+	Command   string `json:"command"`
+	Arguments []any  `json:"arguments,omitempty"`
+}
+
+type CompletionList struct {
+	IsIncomplete bool             `json:"isIncomplete"`
+	Items        []CompletionItem `json:"items"`
+}
+
+type SignatureHelpContext struct {
+	TriggerKind         int            `json:"triggerKind"`
+	TriggerCharacter    string         `json:"triggerCharacter,omitempty"`
+	IsRetrigger         bool           `json:"isRetrigger"`
+	ActiveSignatureHelp *SignatureHelp `json:"activeSignatureHelp,omitempty"`
+}
+
+type SignatureHelpParams struct {
+	TextDocumentPositionParams
+	Context *SignatureHelpContext `json:"context,omitempty"`
+}
+
+type ParameterInformation struct {
+	// Label is the parameter's offsets in its signature's label, [start,
+	// end) in UTF-16 code units, or its text.
+	Label         any            `json:"label"`
+	Documentation *MarkupContent `json:"documentation,omitempty"`
+}
+
+type SignatureInformation struct {
+	Label           string                 `json:"label"`
+	Documentation   *MarkupContent         `json:"documentation,omitempty"`
+	Parameters      []ParameterInformation `json:"parameters,omitempty"`
+	ActiveParameter *uint32                `json:"activeParameter,omitempty"`
+}
+
+type SignatureHelp struct {
+	Signatures      []SignatureInformation `json:"signatures"`
+	ActiveSignature uint32                 `json:"activeSignature"`
+	ActiveParameter uint32                 `json:"activeParameter"`
 }

@@ -1,0 +1,210 @@
+== scope.kt:14:13 "local.va"
+1 items, incomplete false
+  value [10] "" "String"
+== scope.kt:15:7 "lo"
+28 items, incomplete false
+  local [6] "" "Box<String>"
+  Long [7] "" "kotlin"
+  LongArray [7]
+  LongRange [7] "(start: Long, endInclusive: Long)" "kotlin.ranges" -> "LongRange($0)"
+  LongIterator [7] "" "kotlin.collections"
+  LongProgression [7] "" "kotlin.ranges"
+  LongProgressionIterator [7] "(first: Long, last: Long, step: Long)" "kotlin.ranges" -> "LongProgressionIterator($0)"
+  lazyOf [3] "(value: T)" "Lazy<T>" -> "lazyOf($0)"
+  listOf [3] "(element: T)" "List<T>" -> "listOf($0)"
+  listOf [3] "(vararg elements: T)" "List<T>" -> "listOf($0)"
+  listOf [3] "()" "List<T>" -> "listOf()"
+  linkedMapOf [3] "()" "LinkedHashMap<K, V>" -> "linkedMapOf()"
+  …
+== scope.kt:16:9 "topL"
+1 items, incomplete false
+  topLevel [3] "(count: Int, name: String)" "Int" -> "topLevel($0)"
+== scope.kt:17:18 "max(count, co"
+62 items, incomplete false
+  count [6] "" "Int"
+  context [3] "(with: T, block: (T) -> R)" "R" -> "context($0)"
+  context [3] "(a: A, b: B, block: (A, B) -> R)" "R" -> "context($0)"
+  context [3] "(a: A, b: B, c: C, block: (A, B, C) -> R)" "R" -> "context($0)"
+  context [3] "(a: A, b: B, c: C, d: D, block: (A, B, C, D) -> R)" "R" -> "context($0)"
+  context [3] "(a: A, b: B, c: C, d: D, e: E, block: (A, B, C, D, E) -> R)" "R" -> "context($0)"
+  context [3] "(a: A, b: B, c: C, d: D, e: E, f: F, block: (A, B, C, D, E, F) -> R)" "R" -> "context($0)"
+  compareBy [3] "(vararg selectors: )" "Comparator<T>" -> "compareBy($0)"
+  compareBy [3] "(selector: )" "Comparator<T>" -> "compareBy($0)"
+  compareBy [3] "(comparator: Comparator<in K>, selector: (T) -> K)" "Comparator<T>" -> "compareBy($0)"
+  contextOf [3] "()" "A" -> "contextOf()"
+  compareValues [3] "(a: T?, b: T?)" "Int" -> "compareValues($0)"
+  …
+signatures, active 2, parameter 1:
+  max(a: Double, b: Double): Double [b: Double]
+  max(a: Float, b: Float): Float [b: Float]
+  max(a: Int, b: Int): Int [b: Int]
+  max(a: Long, b: Long): Long [b: Long]
+  max(a: UInt, b: UInt): UInt [b: UInt]
+  max(a: ULong, b: ULong): ULong [b: ULong]
+== scope.kt:18:19 "topLevel(1, na"
+8 items, incomplete false
+  name = [6] -> "name = "
+  name [6] "" "String"
+  naturalOrder [3] "()" "Comparator<T>" -> "naturalOrder()"
+  NaturalOrderComparator [9] "" "kotlin.comparisons"
+  nullsLast [3] "(comparator: Comparator<in T>)" "Comparator<T?>" -> "nullsLast($0)"
+  nullsLast [3] "()" "Comparator<T?>" -> "nullsLast()"
+  NoWhenBranchMatchedException [7] "" "kotlin" -> "NoWhenBranchMatchedException($0)"
+  NotNullVar [7] "" "kotlin.properties" +"\nimport kotlin.properties.NotNullVar"
+signatures, active 0, parameter 1:
+  topLevel(count: Int, name: String): Int [name: String]
+== scope.kt:19:25 "topLevel(count = 1,"
+200 items, incomplete true
+  name = [6] -> "name = "
+  name [6] "" "String"
+  String [3] "(bytes: ByteArray, offset: Int, length: Int, charset: Charset)" "String" -> "String($0)"
+  String [3] "(bytes: ByteArray, charset: Charset)" "String" -> "String($0)"
+  String [3] "(bytes: ByteArray, offset: Int, length: Int)" "String" -> "String($0)"
+  String [3] "(bytes: ByteArray)" "String" -> "String($0)"
+  String [3] "(chars: CharArray)" "String" -> "String($0)"
+  String [3] "(chars: CharArray, offset: Int, length: Int)" "String" -> "String($0)"
+  String [3] "(codePoints: IntArray, offset: Int, length: Int)" "String" -> "String($0)"
+  String [3] "(stringBuffer: StringBuffer)" "String" -> "String($0)"
+  String [3] "(stringBuilder: StringBuilder)" "String" -> "String($0)"
+  buildString [3] "(builderAction: (StringBuilder) -> Unit)" "String" -> "buildString { $0 }"
+  …
+signatures, active 0, parameter 1:
+  topLevel(count: Int, name: String): Int [name: String]
+== scope.kt:20:14 "val s: Bo"
+5 items, incomplete false
+  Box [7] "" "demo" doc "A box of a value."
+  Boolean [7] "" "kotlin"
+  BooleanArray [7]
+  BooleanIterator [7] "" "kotlin.collections"
+  ByteIterator [7] "" "kotlin.collections"
+== scope.kt:21:13 "measureT"
+4 items, incomplete false
+  measureTime [3] "(block: () -> Unit)" "kotlin.time" -> "measureTime { $0 }" +"\nimport kotlin.time.measureTime"
+  measureTimeMillis [3] "(block: () -> Unit)" "kotlin.system" -> "measureTimeMillis { $0 }" +"\nimport kotlin.system.measureTimeMillis"
+  measureTimedValue [3] "(block: () -> T)" "kotlin.time" -> "measureTimedValue { $0 }" +"\nimport kotlin.time.measureTimedValue"
+  measureNanoTime [3] "(block: () -> Unit)" "kotlin.system" -> "measureNanoTime { $0 }" +"\nimport kotlin.system.measureNanoTime"
+== scope.kt:22:15 "\"text\".upp"
+2 items, incomplete false
+  uppercase [3] "()" "kotlin.text" -> "uppercase()"
+  uppercase [3] "(locale: Locale)" "kotlin.text" -> "uppercase($0)"
+== scope.kt:23:8 "Hel"
+1 items, incomplete false
+  Helper [7] "" "other" +"\nimport other.Helper"
+== scope.kt:24:11 "otherF"
+1 items, incomplete false
+  otherFun [3] "()" "other" -> "otherFun()" +"\nimport other.otherFun"
+== scope.kt:25:20 "// a comment lo"
+0 items, incomplete false
+== scope.kt:26:28 "val t = \"in a string lo"
+0 items, incomplete false
+== scope.kt:27:9 "Box("
+200 items, incomplete true
+  value = [6] -> "value = "
+  count [6] "" "Int"
+  local [6] "" "Box<String>"
+  name [6] "" "String"
+  s [6]
+  t [6] "" "String"
+  AbstractCollection [7] "" "kotlin.collections"
+  AbstractIterator [7] "" "kotlin.collections"
+  AbstractList [7] "" "kotlin.collections"
+  AbstractMap [7] "" "kotlin.collections"
+  AbstractMutableCollection [7] "" "kotlin.collections"
+  AbstractMutableList [7] "" "kotlin.collections"
+  …
+signatures, active 0, parameter 0:
+  Box(value: T) [value: T] doc "A box of a value."
+== scope.kt:28:15 "listOf(1,"
+0 items, incomplete false
+signatures, active 1, parameter 0:
+  listOf(element: T): List<T>
+  listOf(vararg elements: T): List<T> [vararg elements: T]
+  listOf(): List<T>
+== scope.kt:29:15 "local.map("
+200 items, incomplete true
+  f = [6] -> "f = "
+  count [6] "" "Int"
+  local [6] "" "Box<String>"
+  name [6] "" "String"
+  s [6]
+  t [6] "" "String"
+  AbstractCollection [7] "" "kotlin.collections"
+  AbstractIterator [7] "" "kotlin.collections"
+  AbstractList [7] "" "kotlin.collections"
+  AbstractMap [7] "" "kotlin.collections"
+  AbstractMutableCollection [7] "" "kotlin.collections"
+  AbstractMutableList [7] "" "kotlin.collections"
+  …
+signatures, active 0, parameter 0:
+  map(f: (String) -> String): Box<String> [f: (String) -> String]
+== scope.kt:30:12 "local.m"
+1 items, incomplete false
+  map [2] "(f: (String) -> String)" "Box<String>" -> "map { $0 }"
+== scope.kt:31:16 "makeBox().g"
+5 items, incomplete false
+  get [2] "()" "Int" -> "get()" doc "Returns the value."
+  getOrSet [3] "(default: () -> T)" "kotlin.concurrent" -> "getOrSet { $0 }" +"import kotlin.concurrent.getOrSet\n"
+  getOrElse [3] "(defaultValue: () -> T)" "kotlin.jvm.optionals" -> "getOrElse { $0 }" +"import kotlin.jvm.optionals.getOrElse\n"
+  getOrNull [3] "()" "kotlin.jvm.optionals" -> "getOrNull()" +"import kotlin.jvm.optionals.getOrNull\n"
+  getOrDefault [3] "(defaultValue: T)" "kotlin.jvm.optionals" -> "getOrDefault($0)" +"import kotlin.jvm.optionals.getOrDefault\n"
+== scope.kt:32:13 "boxed.va"
+1 items, incomplete false
+  value [10] "" "Int"
+== scope.kt:33:7 "if"
+4 items, incomplete false
+  if [14]
+  ifn [15] -> "if (${1:x} == null) {\n        $0\n    }"
+  InstantFormatException [7] "" "kotlin.time" +"\nimport kotlin.time.InstantFormatException"
+  IllegalFileNameException [7] "" "kotlin.io.path" +"import kotlin.io.path.IllegalFileNameException\n"
+== scope.kt:37:3 "ma"
+2 items, incomplete false
+  main [15] -> "fun main() {\n    $0\n}"
+  maina [15] -> "fun main(args: Array<String>) {\n    $0\n}"
+== scope.kt:47:5 ""
+33 items, incomplete true
+  override fun equals(other: Any?): Boolean [2] "" "Any" -> "override fun equals(other: Any?): Boolean {\n        return super.equals(other)\n    }"
+  override fun hashCode(): Int [2] "" "Any" -> "override fun hashCode(): Int {\n        return super.hashCode()\n    }"
+  override fun toString(): String [2] "" "Any" -> "override fun toString(): String {\n        return super.toString()\n    }"
+  override val legs: Int [10] "" "Animal" -> "override val legs: Int\n        get() = super.legs"
+  abstract [14]
+  annotation [14]
+  class [14]
+  companion [14]
+  const [14]
+  constructor [14]
+  data [14]
+  enum [14]
+  …
+== scope.kt:48:18 "override fun"
+3 items, incomplete true
+  override fun equals(other: Any?): Boolean [2] "" "Any" -> "override fun equals(other: Any?): Boolean {\n        return super.equals(other)\n    }"
+  override fun hashCode(): Int [2] "" "Any" -> "override fun hashCode(): Int {\n        return super.hashCode()\n    }"
+  override fun toString(): String [2] "" "Any" -> "override fun toString(): String {\n        return super.toString()\n    }"
+== scope.kt:49:7 "le"
+2 items, incomplete false
+  override val legs: Int [10] "" "Animal" -> "override val legs: Int\n        get() = super.legs"
+  lateinit [14]
+== scope.kt:50:8 "toS"
+1 items, incomplete false
+  override fun toString(): String [2] "" "Any" -> "override fun toString(): String {\n        return super.toString()\n    }"
+== scope.kt:53:5 "@Dep"
+4 items, incomplete false
+  Deprecated [8] "" "kotlin"
+  DeprecatedSinceKotlin [8] "" "kotlin"
+  DecodeInputStream [7] "" "kotlin.io.encoding" +"import kotlin.io.encoding.DecodeInputStream\n"
+  DefaultCopyActionContext [7] "" "kotlin.io.path" +"import kotlin.io.path.DefaultCopyActionContext\n"
+== scope.kt:55:7 "b."
+27 items, incomplete true
+  equals [2] "(other: Any?)" "Boolean" -> "equals($0)"
+  get [2] "()" "Int" -> "get()" doc "Returns the value."
+  hashCode [2] "()" "Int" -> "hashCode()"
+  map [2] "(f: (Int) -> Int)" "Box<Int>" -> "map { $0 }"
+  toString [2] "()" "String" -> "toString()"
+  value [10] "" "Int"
+  also [3] "(block: (T) -> Unit)" "kotlin" -> "also { $0 }"
+  apply [3] "(block: (T) -> Unit)" "kotlin" -> "apply { $0 }"
+  coerceAtLeast [3] "(minimumValue: T)" "kotlin.ranges" -> "coerceAtLeast($0)"
+  coerceAtMost [3] "(maximumValue: T)" "kotlin.ranges" -> "coerceAtMost($0)"
+  coerceIn [3] "(minimumValue: T?, maximumValue: T?)" "kotlin.ranges" -> "coerceIn($0)"
+  coerceIn [3] "(range: ClosedFloatingPointRange<T>)" "kotlin.ranges" -> "coerceIn($0)"
+  …
