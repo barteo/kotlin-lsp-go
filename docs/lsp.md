@@ -355,25 +355,29 @@ budgets.
 go run ./bench/lsp -soak 10m -check
 ```
 
-On the generated module (201 Kotlin files, File100.kt opened, 403 lines), darwin/arm64, 8 CPUs:
+On the generated module (201 Kotlin files, File100.kt opened, 403 lines), linux/amd64, 4 CPUs:
 
 | measurement | median | result | budget |
 |---|---|---|---|
-| start to first diagnostics | — | 1.32 s | 3.00 s |
-| body edit to diagnostics, p95 of 20 | 1.08 s | 1.17 s | 2.00 s |
-| completion, p95 of 30 | 521 ms | 556 ms | 1.00 s |
-| definition, p95 of 30 | 0 ms | 3 ms | 300 ms |
-| resident memory | — | 1823 MB | 2560 MB |
-| memory growth over a 10m0s soak (32 rounds) | 1823 → 1863 MB, peak 1870 MB | +2% | +25% |
+| start to first diagnostics | — | 3.46 s | 3.00 s |
+| body edit to diagnostics, p95 of 20 | 352 ms | 444 ms | 600 ms |
+| completion, p95 of 30 | 223 ms | 283 ms | 600 ms |
+| definition, p95 of 30 | 1 ms | 4 ms | 300 ms |
+| resident memory | — | 1110 MB | 2048 MB |
+| memory growth over a 10m0s soak (80 rounds) | 1110 → 1181 MB, peak 1181 MB | +6% | +25% |
 
-The budgets catch regressions, at what kcls does now with room to spare;
-the goals are lower. Each edit checks the whole module, so an edit's
-diagnostics take as long as checking all of it (1.1 s here); a session
-that checks only the edited bodies would bring that to tens of
-milliseconds. Completion checks the file with the module's signatures
-again. The memory is the Go heap with the garbage collector's room: the
-live heap after each collection stays at 500 to 750 MB over a soak, with
-two analyses of the module alive while one replaces the other.
+The budgets catch regressions, at what kcls does now with room to spare
+(the start's is an 8-CPU laptop's, where it takes 1.3 s). A body edit
+checks only its file (an incremental update, see Design): its
+diagnostics took 1.1 s on the laptop when each edit checked the whole
+module, and take 0.35 s here. What is left of an update is mostly
+lowering and resolving the other files' signatures again, which a
+session keeping them between updates would save. Completion checks its
+file against the other files' signatures. The memory is the Go heap
+with the garbage collector's room, with the session's last result and
+the one replacing it alive.
+[bench/results/lsp.md](../bench/results/lsp.md) has the numbers from
+before incremental updates.
 
 ## Design
 
