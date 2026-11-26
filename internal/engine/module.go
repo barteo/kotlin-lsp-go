@@ -1,0 +1,361 @@
+package engine
+
+import (
+	"context"
+	"errors"
+	"path/filepath"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/barteo/kotlin-compiler-go/analysis"
+	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
+	"github.com/barteo/kotlin-compiler-go/internal/lsp/project"
+	"github.com/barteo/kotlin-compiler-go/psi"
+)
+
+// module is a module the engine analyzes.
+type module struct {
+	e    *Engine
+	pm   *project.Module
+	deps []*project.Module // the modules it depends on, transitively
+
+	libMu  sync.Mutex
+	lib    *analysis.Library
+	libErr error
+	srcJar []string // sources jars and src.zip for its class path
+
+	mu       sync.Mutex
+	srcs     map[string][]string // a module's source files, by module ID
+	srcsAt   time.Time
+	last     *features.Analysis
+	lastKey  []*features.File
+	running  *run
+	analyses int
+}
+
+// run is an analysis of some files, which the requests for those files
+// share.
+type run struct {
+	key    []*features.File
+	cancel context.CancelFunc
+	done   chan struct{}
+	res    *features.Analysis
+	err    error
+}
+
+func (e *Engine) newModule(r *root, pm *project.Module) *module {
+	m := &module{e: e, pm: pm}
+	if r != nil {
+		seen := map[string]bool{pm.ID: true}
+		var walk func(*project.Module)
+		walk = func(x *project.Module) {
+			for _, id := range x.DependsOn {
+				if d := r.ws.ByID(id); d != nil && !seen[id] {
+					seen[id] = true
+					m.deps = append(m.deps, d)
+					walk(d)
+				}
+			}
+		}
+		walk(pm)
+		for _, e := range pm.ClassPath {
+			if j := r.ws.SourceJars[e]; j != "" {
+				m.srcJar = append(m.srcJar, j)
+			}
+		}
+	}
+	return m
+}
+
+func (m *module) close() {
+	m.mu.Lock()
+	if m.running != nil {
+		m.running.cancel()
+	}
+	m.mu.Unlock()
+	m.libMu.Lock()
+	defer m.libMu.Unlock()
+	if m.lib != nil {
+		m.lib.Close()
+		m.lib = nil
+	}
+	m.libErr = errors.New("module closed")
+}
+
+func (m *module) invalidateSources() {
+	m.mu.Lock()
+	m.srcs = nil
+	m.mu.Unlock()
+}
+
+// config returns the analysis configuration of the module: its class
+// path less the outputs of the modules whose sources it is analyzed with.
+func (m *module) config() analysis.Config {
+	pm := m.pm
+	cfg := analysis.Config{
+		JDKHome: pm.JDKHome, ModuleName: pm.ModuleName, NoJDK: pm.NoJDK, Jobs: m.e.opts.Jobs,
+		ExplicitAPIMode: pm.ExplicitAPI, OptIns: pm.OptIns, JVMTarget: pm.JVMTarget,
+	}
+	if !cfg.NoJDK && cfg.JDKHome == "" {
+		cfg.JDKHome = project.FindJDK()
+	}
+	for _, p := range pm.Plugins {
+		switch p {
+		case "serialization":
+			cfg.Serialization = true
+		case "parcelize":
+			cfg.Parcelize = true
+		case "compose":
+			cfg.Compose = true
+		}
+	}
+	var builds []string
+	for _, d := range m.deps {
+		if d.Output != "" {
+			builds = append(builds, d.Output)
+			if i := strings.Index(d.Output, string(filepath.Separator)+"build"+string(filepath.Separator)); i >= 0 {
+				builds = append(builds, d.Output[:i+len("/build")])
+			}
+		}
+	}
+	for _, e := range pm.ClassPath {
+		if slices.ContainsFunc(builds, func(b string) bool { return within(e, b) }) || !exists(e) {
+			continue
+		}
+		cfg.ClassPath = append(cfg.ClassPath, e)
+		if slices.Contains(pm.FriendPaths, e) {
+			cfg.FriendPaths = append(cfg.FriendPaths, e)
+		}
+	}
+	return cfg
+}
+
+// library opens the module's class path, once.
+func (m *module) library() (*analysis.Library, error) {
+	m.libMu.Lock()
+	defer m.libMu.Unlock()
+	if m.lib != nil || m.libErr != nil {
+		return m.lib, m.libErr
+	}
+	cfg := m.config()
+	start := time.Now()
+	lib, err := analysis.OpenLibrary(cfg)
+	if err != nil && cfg.JVMTarget != "" {
+		m.e.logf("engine: %s: %v; analyzing with the default JVM target", m.pm.ID, err)
+		cfg.JVMTarget = ""
+		lib, err = analysis.OpenLibrary(cfg)
+	}
+	if err != nil {
+		m.libErr = err
+		return nil, err
+	}
+	m.e.logf("engine: %s: opened %d class path entries in %v", m.pm.ID, len(cfg.ClassPath), time.Since(start).Round(time.Millisecond))
+	m.lib = lib
+	return lib, nil
+}
+
+// sources returns the source files of the module and of those it depends
+// on, listing the directories again when the list is older than the TTL.
+func (m *module) sources() map[string][]string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.srcs != nil && time.Since(m.srcsAt) < m.e.opts.SourcesTTL {
+		return m.srcs
+	}
+	srcs := map[string][]string{m.pm.ID: m.pm.Sources()}
+	for _, d := range m.deps {
+		srcs[d.ID] = d.Sources()
+	}
+	m.srcs, m.srcsAt = srcs, time.Now()
+	return srcs
+}
+
+// files returns the current files to analyze: the module's own Kotlin
+// files, path among them, and its Java files and those of its
+// dependencies. own are the paths of the module's own Kotlin files.
+func (m *module) files(path string) (files []*features.File, own []string, err error) {
+	srcs := m.sources()
+	add := func(p string, mine bool) error {
+		f, err := m.e.opts.Files.File(p)
+		if err != nil {
+			if p == path {
+				return err
+			}
+			return nil // deleted meanwhile
+		}
+		files = append(files, f)
+		if mine && strings.HasSuffix(p, ".kt") {
+			own = append(own, p)
+		}
+		return nil
+	}
+	mine := srcs[m.pm.ID]
+	if !slices.Contains(mine, path) {
+		if err := add(path, true); err != nil {
+			return nil, nil, err
+		}
+	}
+	for _, p := range mine {
+		if err := add(p, true); err != nil {
+			return nil, nil, err
+		}
+	}
+	for _, d := range m.deps {
+		for _, p := range srcs[d.ID] {
+			add(p, false)
+		}
+	}
+	return files, own, nil
+}
+
+// analyze returns the analysis of the module's current files.
+func (m *module) analyze(ctx context.Context, path string) (*features.Analysis, error) {
+	for {
+		files, own, err := m.files(path)
+		if err != nil {
+			return nil, err
+		}
+		m.mu.Lock()
+		if m.last != nil && slices.Equal(m.lastKey, files) {
+			a := m.last
+			m.mu.Unlock()
+			return a, nil
+		}
+		r := m.running
+		if r == nil || !slices.Equal(r.key, files) {
+			if r != nil {
+				r.cancel() // out of date
+			}
+			r = m.start(files, own)
+		}
+		m.mu.Unlock()
+		select {
+		case <-r.done:
+			if r.err != nil && errors.Is(r.err, context.Canceled) && ctx.Err() == nil && m.e.ctx.Err() == nil {
+				continue // superseded by newer files
+			}
+			return r.res, r.err
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+}
+
+// start starts analyzing files. The caller holds m.mu.
+func (m *module) start(files []*features.File, own []string) *run {
+	ctx, cancel := context.WithCancel(m.e.ctx)
+	r := &run{key: files, cancel: cancel, done: make(chan struct{})}
+	m.running = r
+	m.analyses++
+	go func() {
+		defer cancel()
+		res, err := m.run(ctx, files, own)
+		m.mu.Lock()
+		if m.running == r {
+			m.running = nil
+		}
+		if err == nil {
+			m.last, m.lastKey = res, files
+		}
+		m.mu.Unlock()
+		r.res, r.err = res, err
+		close(r.done)
+	}()
+	return r
+}
+
+func (m *module) run(ctx context.Context, files []*features.File, own []string) (*features.Analysis, error) {
+	lib, err := m.library()
+	if err != nil {
+		return nil, err
+	}
+	var opts = analysis.Options{Warnings: true}
+	var kt []*features.File
+	for _, f := range files {
+		switch filepath.Ext(f.Snapshot.Path()) {
+		case ".kt":
+			kt = append(kt, f)
+		case ".java":
+			opts.Java = append(opts.Java, analysis.JavaSource{Path: f.Snapshot.Path(), Text: f.Mapper.Text()})
+		}
+	}
+	snaps := make([]*psi.Snapshot, 0, len(kt))
+	for _, f := range kt {
+		snaps = append(snaps, f.Snapshot)
+	}
+	start := time.Now()
+	res, err := lib.Analyze(ctx, snaps, opts)
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
+			m.e.logf("engine: %s: %v", m.pm.ID, err)
+		}
+		return nil, err
+	}
+	m.e.logf("engine: %s: analyzed %d files in %v", m.pm.ID, len(kt), time.Since(start).Round(time.Millisecond))
+	var libs features.Libraries
+	if jars := m.sourceJars(); len(jars) > 0 {
+		libs = m.e.libs.forJars(jars, m.e.opts.Files)
+	}
+	return features.NewAnalysis(res, m.pm.ID, kt, own, libs), nil
+}
+
+// sourceJars returns the sources of the module's libraries: the sources
+// jars the build found and the JDK's src.zip.
+func (m *module) sourceJars() []string {
+	jars := slices.Clone(m.srcJar)
+	if !m.pm.NoJDK {
+		jdk := m.pm.JDKHome
+		if jdk == "" {
+			jdk = project.FindJDK()
+		}
+		if jdk != "" {
+			for _, p := range []string{filepath.Join(jdk, "lib", "src.zip"), filepath.Join(jdk, "src.zip")} {
+				if exists(p) {
+					jars = append(jars, p)
+					break
+				}
+			}
+		}
+	}
+	// The standard library's sources jar sits next to it in a Maven or
+	// Gradle layout, or in kc's own distribution.
+	for _, e := range m.pm.ClassPath {
+		base := filepath.Base(e)
+		if !strings.HasPrefix(base, "kotlin-stdlib") || !strings.HasSuffix(base, ".jar") || strings.HasSuffix(base, "-sources.jar") {
+			continue
+		}
+		for _, cand := range siblingSources(e) {
+			if exists(cand) && !slices.Contains(jars, cand) {
+				jars = append(jars, cand)
+			}
+		}
+	}
+	return jars
+}
+
+// siblingSources returns where a jar's sources jar may be: next to it,
+// or, in Gradle's cache, in a sibling hash directory.
+func siblingSources(jar string) []string {
+	name := strings.TrimSuffix(filepath.Base(jar), ".jar") + "-sources.jar"
+	out := []string{filepath.Join(filepath.Dir(jar), name)}
+	if matches, err := filepath.Glob(filepath.Join(filepath.Dir(filepath.Dir(jar)), "*", name)); err == nil {
+		out = append(out, matches...)
+	}
+	return out
+}
+
+// Stats are counters for tests and logs.
+type Stats struct{ Analyses int }
+
+// Stats returns the counters of the module of path.
+func (e *Engine) Stats(path string) (Stats, error) {
+	m, err := e.module(context.Background(), path)
+	if err != nil {
+		return Stats{}, err
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return Stats{Analyses: m.analyses}, nil
+}

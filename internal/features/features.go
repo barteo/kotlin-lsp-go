@@ -35,9 +35,28 @@ func (f *File) Range(n psi.NodeRef) protocol.Range {
 // compact returns the node's text with trivia dropped and whitespace
 // normalized, as a one-line signature shows it: "(x: Int, y: String)".
 func compact(n psi.NodeRef) string {
+	return compactWith(n, func(psi.NodeRef) walk { return visit })
+}
+
+// walk is what compactWith does with a node.
+type walk int
+
+const (
+	visit       walk = iota
+	skipNode         // leave out the node and its children
+	spacedColon      // a colon written " : ", as before a class's supertypes
+)
+
+// compactWith is compact, asking filter about each node first.
+func compactWith(n psi.NodeRef, filter func(psi.NodeRef) walk) string {
 	var b strings.Builder
 	prev := byte(0)
+	prevKeyword, afterTypeParameters := false, false
 	psi.WalkNodes(n, func(c psi.NodeRef) bool {
+		w := filter(c)
+		if w == skipNode {
+			return false
+		}
 		if !c.IsLeaf() {
 			return true
 		}
@@ -51,6 +70,9 @@ func compact(n psi.NodeRef) string {
 			prev = ' '
 			return false
 		case psi.KindCOLON:
+			if w == spacedColon && prev != ' ' {
+				b.WriteByte(' ')
+			}
 			b.WriteString(": ")
 			prev = ' '
 			return false
@@ -62,11 +84,16 @@ func compact(n psi.NodeRef) string {
 			prev = ' '
 			return false
 		}
-		if wordByte(prev) && wordByte(t[0]) {
+		switch {
+		case wordByte(prev) && wordByte(t[0]),
+			prev == '>' && wordByte(t[0]) && afterTypeParameters,
+			t == "<" && prevKeyword:
 			b.WriteByte(' ')
 		}
 		b.WriteString(t)
 		prev = t[len(t)-1]
+		prevKeyword = psi.IsKeyword(c.NumericKind())
+		afterTypeParameters = c.NumericKind() == psi.KindGT && c.Parent().NumericKind() == psi.KindTYPE_PARAMETER_LIST
 		return false
 	})
 	s := strings.TrimSpace(b.String())

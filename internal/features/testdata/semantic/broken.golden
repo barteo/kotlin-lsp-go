@@ -1,0 +1,25 @@
+==== broken.kt
+== diagnostics
+11:29-11:29 error syntax_error []: Expecting an element
+== at 11:18 add
+== at 12:29 first
+hover [first]:
+  ```kotlin
+  fun <T> List<T>.first(): T
+  ```
+  
+  *kotlin.collections*
+highlights: 12:29
+== at 13:17 s
+hover [s]:
+  ```kotlin
+  val s: String
+  ```
+definition: broken.kt:12:9 [s]
+highlights: 12:9 13:17
+== at 14:10 n
+hover [n]:
+  ```kotlin
+  val n
+  ```
+highlights: 14:10

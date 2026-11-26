@@ -1,0 +1,86 @@
+==== shapes.kt
+== diagnostics
+26:67-26:80 info unsupported:unsupported types in signature [{ it.area() }]: 'maxByOrNull' uses types kc doesn't support
+==== use.kt
+== diagnostics
+15:10-15:19 error  [undefined]: unresolved reference: undefined
+16:15-16:17 warning INTEGER_LITERAL_CAST_INSTEAD_OF_TO_CALL [as]: use 'toInt' to give the type explicitly
+== at 8:14 circles
+hover [circles]:
+  ```kotlin
+  val circles: List<Circle>
+  ```
+definition: use.kt:8:14 [circles]
+highlights: 8:14 10:15 13:41
+== at 8:36 Circle
+hover [Circle]:
+  ```kotlin
+  data class Circle(val r: Double) : Shape
+  ```
+  
+  *shapes*
+  
+  ---
+  
+  A circle of radius `r`.
+definition: shapes.kt:16:12 [Circle]
+type definition: shapes.kt:16:12 [Circle]
+highlights: 8:36 8:49
+== at 11:14 total
+hover [total]:
+  ```kotlin
+  var total: Double
+  ```
+definition: use.kt:9:9 [total]
+highlights: 9:9 11:14(w) 14:35 15:20
+== at 11:30 area
+hover [area]:
+  ```kotlin
+  override fun area(): Double
+  ```
+  
+  *shapes.Circle*
+definition: shapes.kt:18:18 [area]
+highlights: 11:30
+== at 13:19 Shape
+hover [Shape]:
+  ```kotlin
+  interface Shape
+  ```
+  
+  *shapes*
+  
+  ---
+  
+  A shape with an `area`.
+  
+  **Properties**
+  - `name` — what the shape is called
+definition: shapes.kt:8:11 [Shape]
+type definition: shapes.kt:8:11 [Shape]
+== at 13:33 largest
+hover [largest]:
+  ```kotlin
+  fun <T: Shape> largest(shapes: List<T>): T?
+  ```
+  
+  *shapes*
+definition: shapes.kt:26:17 [largest]
+type definition: shapes.kt:16:12 [Circle]
+highlights: 13:33
+== at 14:18 big
+hover [big]:
+  ```kotlin
+  val big: Shape?
+  ```
+definition: use.kt:13:9 [big]
+type definition: shapes.kt:8:11 [Shape]
+highlights: 13:9 14:18
+== at 14:35 total
+hover [total]:
+  ```kotlin
+  var total: Double
+  ```
+definition: use.kt:9:9 [total]
+highlights: 9:9 11:14(w) 14:35 15:20
+== at 15:10 undefined

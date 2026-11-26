@@ -82,6 +82,11 @@ type WorkspaceClientCapabilities struct {
 	DidChangeWatchedFiles *DynamicRegistration `json:"didChangeWatchedFiles,omitempty"`
 	WorkspaceFolders      bool                 `json:"workspaceFolders,omitempty"`
 	Configuration         bool                 `json:"configuration,omitempty"`
+	Diagnostics           *RefreshCapability   `json:"diagnostics,omitempty"`
+}
+
+type RefreshCapability struct {
+	RefreshSupport bool `json:"refreshSupport,omitempty"`
 }
 
 type TextDocumentClientCapabilities struct {
@@ -89,6 +94,17 @@ type TextDocumentClientCapabilities struct {
 	FoldingRange   *FoldingRangeClientCapabilities   `json:"foldingRange,omitempty"`
 	Diagnostic     *DynamicRegistration              `json:"diagnostic,omitempty"`
 	SemanticTokens *SemanticTokensClientCapabilities `json:"semanticTokens,omitempty"`
+	Hover          *HoverClientCapabilities          `json:"hover,omitempty"`
+	Definition     *LinkClientCapabilities           `json:"definition,omitempty"`
+	TypeDefinition *LinkClientCapabilities           `json:"typeDefinition,omitempty"`
+}
+
+type HoverClientCapabilities struct {
+	ContentFormat []string `json:"contentFormat,omitempty"`
+}
+
+type LinkClientCapabilities struct {
+	LinkSupport bool `json:"linkSupport,omitempty"`
 }
 
 type DocumentSymbolClientCapabilities struct {
@@ -133,14 +149,23 @@ type TextDocumentSyncOptions struct {
 }
 
 type ServerCapabilities struct {
-	PositionEncoding       string                   `json:"positionEncoding,omitempty"`
-	TextDocumentSync       *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
-	DocumentSymbolProvider bool                     `json:"documentSymbolProvider,omitempty"`
-	FoldingRangeProvider   bool                     `json:"foldingRangeProvider,omitempty"`
-	SelectionRangeProvider bool                     `json:"selectionRangeProvider,omitempty"`
-	SemanticTokensProvider *SemanticTokensOptions   `json:"semanticTokensProvider,omitempty"`
-	DiagnosticProvider     *DiagnosticOptions       `json:"diagnosticProvider,omitempty"`
-	Workspace              *WorkspaceOptions        `json:"workspace,omitempty"`
+	PositionEncoding          string                   `json:"positionEncoding,omitempty"`
+	TextDocumentSync          *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
+	DocumentSymbolProvider    bool                     `json:"documentSymbolProvider,omitempty"`
+	FoldingRangeProvider      bool                     `json:"foldingRangeProvider,omitempty"`
+	SelectionRangeProvider    bool                     `json:"selectionRangeProvider,omitempty"`
+	SemanticTokensProvider    *SemanticTokensOptions   `json:"semanticTokensProvider,omitempty"`
+	DiagnosticProvider        *DiagnosticOptions       `json:"diagnosticProvider,omitempty"`
+	HoverProvider             bool                     `json:"hoverProvider,omitempty"`
+	DefinitionProvider        bool                     `json:"definitionProvider,omitempty"`
+	TypeDefinitionProvider    bool                     `json:"typeDefinitionProvider,omitempty"`
+	DocumentHighlightProvider bool                     `json:"documentHighlightProvider,omitempty"`
+	ExecuteCommandProvider    *ExecuteCommandOptions   `json:"executeCommandProvider,omitempty"`
+	Workspace                 *WorkspaceOptions        `json:"workspace,omitempty"`
+}
+
+type ExecuteCommandOptions struct {
+	Commands []string `json:"commands"`
 }
 
 type WorkspaceOptions struct {
@@ -427,4 +452,77 @@ const (
 type LogMessageParams struct {
 	Type    MessageType `json:"type"`
 	Message string      `json:"message"`
+}
+
+// ---- language features ----
+
+// MarkupContent is text for the client to render: "plaintext" or
+// "markdown".
+type MarkupContent struct {
+	Kind  string `json:"kind"`
+	Value string `json:"value"`
+}
+
+type HoverParams = TextDocumentPositionParams
+
+type Hover struct {
+	Contents MarkupContent `json:"contents"`
+	Range    *Range        `json:"range,omitempty"`
+}
+
+type DefinitionParams = TextDocumentPositionParams
+
+// LocationLink is a definition: where it is, its whole range, and the
+// range to select, its name.
+type LocationLink struct {
+	OriginSelectionRange *Range      `json:"originSelectionRange,omitempty"`
+	TargetURI            DocumentURI `json:"targetUri"`
+	TargetRange          Range       `json:"targetRange"`
+	TargetSelectionRange Range       `json:"targetSelectionRange"`
+}
+
+type DocumentHighlightKind int
+
+const (
+	HighlightText  DocumentHighlightKind = 1
+	HighlightRead  DocumentHighlightKind = 2
+	HighlightWrite DocumentHighlightKind = 3
+)
+
+type DocumentHighlight struct {
+	Range Range                 `json:"range"`
+	Kind  DocumentHighlightKind `json:"kind,omitempty"`
+}
+
+// ---- commands and progress ----
+
+type ExecuteCommandParams struct {
+	Command   string            `json:"command"`
+	Arguments []json.RawMessage `json:"arguments,omitempty"`
+}
+
+type ShowMessageParams struct {
+	Type    MessageType `json:"type"`
+	Message string      `json:"message"`
+}
+
+type WorkDoneProgressCreateParams struct {
+	Token string `json:"token"`
+}
+
+type ProgressParams struct {
+	Token string `json:"token"`
+	Value any    `json:"value"`
+}
+
+type WorkDoneProgressBegin struct {
+	Kind        string `json:"kind"` // "begin"
+	Title       string `json:"title"`
+	Cancellable bool   `json:"cancellable"`
+	Message     string `json:"message,omitempty"`
+}
+
+type WorkDoneProgressEnd struct {
+	Kind    string `json:"kind"` // "end"
+	Message string `json:"message,omitempty"`
 }
