@@ -1,0 +1,110 @@
+{
+  "name": "kcls",
+  "displayName": "Kotlin (kcls)",
+  "description": "Kotlin language support from kcls, the Kotlin language server built on the kc compiler",
+  "version": "0.0.1",
+  "publisher": "barteo",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/barteo/kotlin-compiler-go",
+    "directory": "editors/vscode"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "kotlin",
+    "lsp",
+    "kc"
+  ],
+  "activationEvents": [
+    "onLanguage:kotlin",
+    "workspaceContains:**/*.kt"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "kotlin",
+        "aliases": [
+          "Kotlin",
+          "kotlin"
+        ],
+        "extensions": [
+          ".kt",
+          ".kts"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "kotlin",
+        "scopeName": "source.kotlin",
+        "path": "./syntaxes/kotlin.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Kotlin (kcls)",
+      "properties": {
+        "kcls.path": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Path to the `kcls` binary. Empty: the binary bundled with the extension, else `kcls` on `PATH`. `kc` works too, with `-lsp` in `#kcls.args#`."
+        },
+        "kcls.args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Extra arguments for the language server."
+        },
+        "kcls.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Trace the messages between VS Code and the language server in its output channel."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "kcls.restartServer",
+        "title": "Restart Language Server",
+        "category": "Kotlin"
+      },
+      {
+        "command": "kcls.showLog",
+        "title": "Show Language Server Log",
+        "category": "Kotlin"
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -watch -p .",
+    "vscode:prepublish": "npm run compile",
+    "package": "cp ../../LICENSE LICENSE && vsce package",
+    "test": "npm run compile && node test/grammar.js"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.0.0",
+    "typescript": "^5.4.0",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  }
+}
