@@ -7,7 +7,7 @@ for VS Code and for coding agents such as Claude Code. kotlin-lsp is
 IntelliJ running headless, needs JDK 25 and takes seconds to start; kcls
 is one Go binary that starts in milliseconds.
 
-It is early work: milestones M0 to M3 of M0 to M7 are done. This page
+It is early work: milestones M0 to M4 of M0 to M7 are done. This page
 tracks what it does and what comes next.
 
 ## Run it
@@ -48,7 +48,8 @@ language server. Logs go to stderr, or to the file `-log` names.
 | Workspace symbols, with library classes | `workspace/symbol` | done |
 | Completion, auto-import, overrides, live templates | `completion`, `completionItem/resolve` | done |
 | Signature help | `signatureHelp` | done |
-| Quick fixes, organize imports, inlay hints | `codeAction`, `inlayHint` | M4 |
+| Quick fixes, intentions, organize imports | `codeAction` | done |
+| Inlay hints: types, parameter names, lambdas | `inlayHint` | done |
 | Formatting, extract and inline variable, move | `formatting`, `codeAction`, `willRenameFiles` | M5 |
 | Run `main` and tests | `codeLens` | M6 |
 | Maven, multiplatform polish, release packaging | | M7 |
@@ -125,6 +126,45 @@ How the server behaves:
   the parameter of the argument at the caret, by its position or its
   name; the overload whose parameters fit the arguments' types is the
   active one.
+- **Inlay hints** show the inferred type of a property, local variable,
+  destructuring entry, `for` variable or expression-bodied function
+  that doesn't declare it, unless the initializer shows it (a literal, a
+  constructor call, a cast); the names of the parameters that literal
+  arguments are passed to (`kcls.hints.parameterNames`: `literals`,
+  `all` or `none`), not where the argument already is a variable of that
+  name, nor after a named argument, nor for Java methods; and a lambda's
+  implicit `it` and receiver `this`, with their types. The
+  `kcls.hints.types`, `.parameterNames` and `.lambdas` settings come as
+  `initializationOptions` (`{"hints": {...}}`) and with
+  `workspace/didChangeConfiguration` (`{"kcls": {"hints": {...}}}`),
+  after which the client is asked to refresh the hints.
+- **Code actions**: quick fixes for the diagnostics the client sends,
+  intentions at the caret, and organizing the imports:
+  - an unresolved name: import each class or function of that name the
+    completion would import;
+  - a `when` that isn't exhaustive: add its missing branches (enum
+    entries, sealed subclasses and objects, `true`, `false`, `null`) or
+    an `else` branch, each `-> TODO()`;
+  - a class or object that doesn't implement abstract members:
+    implement them with `TODO()` stubs;
+  - warnings: remove an unused variable (keeping an initializer that
+    calls something), rename an unused lambda parameter to `_`, remove a
+    redundant modifier, a useless cast, an unnecessary `?.` or `!!`, an
+    unused import; and suppress any named warning with `@Suppress` on
+    the declarations around it or `@file:Suppress`;
+  - intentions (`refactor.rewrite`): specify an inferred type
+    explicitly, importing its classes, and add names to a call's
+    positional arguments;
+  - `source.organizeImports` removes unused and duplicate imports and
+    sorts the rest as IntelliJ does: others, `java`, `javax`, `kotlin`,
+    then aliases. An import counts as used if a name or a KDoc link in
+    the file names it, or it is an operator function (`getValue`,
+    `plus`, `component1`, …). Unused imports are also reported as hints
+    tagged unnecessary.
+
+  Warnings include kotlinc's extra checkers, as IntelliJ shows them:
+  unused variables and parameters, redundant modifiers, unreachable
+  code.
 - A request that fails, even with a panic, is answered with an error, and
   the server keeps serving.
 
@@ -229,7 +269,14 @@ Still to come from kc:
 - override links and declaration flags (open, val or var, deprecated)
   in the facts: kcls reads overrides and flags from the syntax, and
   library members' flags it doesn't know;
-- library top-level functions and properties for workspace symbols.
+- library top-level functions and properties for workspace symbols;
+- kotlinc names for errors, so quick fixes need not match messages: the
+  fixes of errors (unresolved references, non-exhaustive `when`, missing
+  implementations) recognize them by kc's message; more fixes for
+  errors (type mismatches, missing arguments) need names and ranges;
+- which names an import brings into use: organize imports judges by
+  names, so an import whose name a member or local also has counts as
+  used.
 
 ## Tests
 
@@ -245,6 +292,10 @@ Still to come from kc:
   references, implementations, rename and hierarchies at each caret.
   `testdata/completion/<dir>.golden` records the first completion items
   and the signature help at each caret, the carets removed.
+  `testdata/inlay/<dir>.golden` records the inlay hints, inline, with
+  the default settings and with every parameter name.
+  `testdata/actions/<dir>.golden` records each diagnostic's quick fixes,
+  the intentions at each word, and organize imports, with their edits.
   Check a change, then
   accept it with `go test ./internal/lsp/features -update`.
 - `KCLS_GRADLE_TEST=1 go test ./internal/lsp/project -run Gradle` imports
