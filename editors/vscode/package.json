@@ -86,6 +86,16 @@
         "command": "kcls.showLog",
         "title": "Show Language Server Log",
         "category": "Kotlin"
+      },
+      {
+        "command": "kcls.reimport",
+        "title": "Reimport Project",
+        "category": "Kotlin"
+      },
+      {
+        "command": "kcls.clearCaches",
+        "title": "Clear Caches and Reimport",
+        "category": "Kotlin"
       }
     ]
   },

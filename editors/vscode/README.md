@@ -4,16 +4,20 @@ Kotlin language support from `kcls`, the Kotlin language server built on
 [kc](https://github.com/barteo/kotlin-compiler-go). It starts in
 milliseconds and needs no JVM.
 
-What it does so far (milestone M0 of [docs/lsp.md](../../docs/lsp.md)):
+What it does so far (milestone M1 of [docs/lsp.md](../../docs/lsp.md)):
 
-- Syntax errors as you type
+- Type errors and warnings as you type, from kc's checker
+- Hover with the signature and KDoc
+- Go to definition and type definition, into library sources too
+- Highlights of a symbol's occurrences
+- Gradle projects, imported in the background, or a `kcls.json`
 - Outline and breadcrumbs, with each function's signature
 - Folding, expand and shrink selection
 - Semantic highlighting from the syntax tree, and a TextMate grammar
 - Bracket, quote and KDoc comment completion
 
-Type checking, navigation, completion and refactorings come in the next
-milestones.
+Find references, completion, code actions and refactorings come in the
+next milestones.
 
 ## Install from source
 
@@ -40,6 +44,8 @@ the `kcls` on `PATH`, or the binary `kcls.path` names.
 
 - **Kotlin: Restart Language Server**
 - **Kotlin: Show Language Server Log**
+- **Kotlin: Reimport Project**: read the Gradle build or `kcls.json` again
+- **Kotlin: Clear Caches and Reimport**
 
 Disable JetBrains' Kotlin extension (`jetbrains.kotlin-server`) or any
 other Kotlin language server in the same workspace: two servers answer

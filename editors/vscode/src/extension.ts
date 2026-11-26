@@ -1,6 +1,8 @@
 // The VS Code client of kcls, the Kotlin language server built on kc.
 // It starts the server over stdio and adds commands to restart it and to
-// show its log.
+// show its log. The server's own commands, kcls.reimport and
+// kcls.clearCaches, are registered by the language client from the
+// server's executeCommandProvider; package.json gives them their titles.
 
 import * as fs from "fs";
 import * as path from "path";
