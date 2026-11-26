@@ -166,7 +166,7 @@ func Diagnostics(a *Analysis, f *File) []protocol.Diagnostic {
 		}
 		out = append(out, pd)
 	}
-	return out
+	return append(out, unusedImportDiagnostics(f)...)
 }
 
 // offset returns the byte offset of a 1-based line and byte column,

@@ -84,6 +84,7 @@ type WorkspaceClientCapabilities struct {
 	Configuration         bool                 `json:"configuration,omitempty"`
 	Diagnostics           *RefreshCapability   `json:"diagnostics,omitempty"`
 	SemanticTokens        *RefreshCapability   `json:"semanticTokens,omitempty"`
+	InlayHint             *RefreshCapability   `json:"inlayHint,omitempty"`
 }
 
 type RefreshCapability struct {
@@ -206,6 +207,8 @@ type ServerCapabilities struct {
 	TypeHierarchyProvider     bool                     `json:"typeHierarchyProvider,omitempty"`
 	WorkspaceSymbolProvider   bool                     `json:"workspaceSymbolProvider,omitempty"`
 	ExecuteCommandProvider    *ExecuteCommandOptions   `json:"executeCommandProvider,omitempty"`
+	InlayHintProvider         bool                     `json:"inlayHintProvider,omitempty"`
+	CodeActionProvider        *CodeActionOptions       `json:"codeActionProvider,omitempty"`
 	Workspace                 *WorkspaceOptions        `json:"workspace,omitempty"`
 }
 
@@ -762,4 +765,66 @@ type SignatureHelp struct {
 	Signatures      []SignatureInformation `json:"signatures"`
 	ActiveSignature uint32                 `json:"activeSignature"`
 	ActiveParameter uint32                 `json:"activeParameter"`
+}
+
+// Inlay hints.
+
+type InlayHintKind int
+
+const (
+	InlayHintType      InlayHintKind = 1
+	InlayHintParameter InlayHintKind = 2
+)
+
+type InlayHintParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Range        Range                  `json:"range"`
+}
+
+type InlayHint struct {
+	Position     Position       `json:"position"`
+	Label        string         `json:"label"`
+	Kind         InlayHintKind  `json:"kind,omitempty"`
+	Tooltip      *MarkupContent `json:"tooltip,omitempty"`
+	PaddingLeft  bool           `json:"paddingLeft,omitempty"`
+	PaddingRight bool           `json:"paddingRight,omitempty"`
+}
+
+// Code actions.
+
+// The kinds of code actions kcls offers.
+const (
+	QuickFix              = "quickfix"
+	RefactorRewrite       = "refactor.rewrite"
+	SourceOrganizeImports = "source.organizeImports"
+)
+
+type CodeActionOptions struct {
+	CodeActionKinds []string `json:"codeActionKinds,omitempty"`
+	ResolveProvider bool     `json:"resolveProvider,omitempty"`
+}
+
+type CodeActionContext struct {
+	Diagnostics []Diagnostic `json:"diagnostics"`
+	Only        []string     `json:"only,omitempty"`
+	TriggerKind int          `json:"triggerKind,omitempty"`
+}
+
+type CodeActionParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Range        Range                  `json:"range"`
+	Context      CodeActionContext      `json:"context"`
+}
+
+type CodeAction struct {
+	Title       string         `json:"title"`
+	Kind        string         `json:"kind,omitempty"`
+	Diagnostics []Diagnostic   `json:"diagnostics,omitempty"`
+	IsPreferred bool           `json:"isPreferred,omitempty"`
+	Edit        *WorkspaceEdit `json:"edit,omitempty"`
+	Command     *Command       `json:"command,omitempty"`
+}
+
+type DidChangeConfigurationParams struct {
+	Settings json.RawMessage `json:"settings"`
 }

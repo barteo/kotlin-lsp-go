@@ -272,7 +272,7 @@ func (m *module) run(ctx context.Context, files []*features.File, own []string, 
 	if err != nil {
 		return nil, err
 	}
-	var opts = analysis.Options{Warnings: complete == nil, Complete: complete}
+	var opts = analysis.Options{Warnings: complete == nil, ExtraWarnings: true, Complete: complete}
 	var kt []*features.File
 	for _, f := range files {
 		switch filepath.Ext(f.Snapshot.Path()) {

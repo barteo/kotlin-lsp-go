@@ -73,7 +73,11 @@ type Server struct {
 	labelOffsets        bool // signature help's parameter labels
 	refreshDiagnostics  bool
 	refreshTokens       bool
+	refreshHints        bool
 	workDoneProgress    bool
+
+	// hints are the kcls.hints settings, under mu.
+	hints features.HintOptions
 
 	docs *docStore
 
@@ -226,7 +230,24 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 		}
 		s.refreshAll()
 		return nil, nil
-	case "workspace/didChangeConfiguration", "$/setTrace":
+	case "workspace/didChangeConfiguration":
+		var p protocol.DidChangeConfigurationParams
+		if err := decode(req, &p); err != nil {
+			return nil, err
+		}
+		var settings struct {
+			Kcls json.RawMessage `json:"kcls"`
+		}
+		if json.Unmarshal(p.Settings, &settings) == nil && len(settings.Kcls) > 0 {
+			s.mu.Lock()
+			changed := s.configure(settings.Kcls)
+			s.mu.Unlock()
+			if changed {
+				s.refreshInlayHints()
+			}
+		}
+		return nil, nil
+	case "$/setTrace":
 		return nil, nil
 	case "workspace/executeCommand":
 		var p protocol.ExecuteCommandParams
@@ -244,6 +265,9 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 
 	case "textDocument/completion", "completionItem/resolve", "textDocument/signatureHelp":
 		return s.completion(ctx, req)
+
+	case "textDocument/inlayHint", "textDocument/codeAction":
+		return s.actions(ctx, req)
 
 	case "textDocument/references", "textDocument/implementation", "textDocument/prepareRename", "textDocument/rename",
 		"textDocument/prepareCallHierarchy", "textDocument/prepareTypeHierarchy",
@@ -376,8 +400,11 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 		s.watchFiles = ws.DidChangeWatchedFiles != nil && ws.DidChangeWatchedFiles.DynamicRegistration
 		s.refreshDiagnostics = ws.Diagnostics != nil && ws.Diagnostics.RefreshSupport
 		s.refreshTokens = ws.SemanticTokens != nil && ws.SemanticTokens.RefreshSupport
+		s.refreshHints = ws.InlayHint != nil && ws.InlayHint.RefreshSupport
 	}
 	s.workDoneProgress = caps.Window != nil && caps.Window.WorkDoneProgress
+	s.hints = features.DefaultHints()
+	s.configure(p.InitializationOptions)
 	for _, f := range p.WorkspaceFolders {
 		if path, err := uriPath(f.URI); err == nil {
 			s.roots = append(s.roots, path)
@@ -435,7 +462,11 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 			WorkspaceSymbolProvider:   true,
 			CompletionProvider:        &protocol.CompletionOptions{TriggerCharacters: []string{".", ":", "@"}, ResolveProvider: true},
 			SignatureHelpProvider:     &protocol.SignatureHelpOptions{TriggerCharacters: []string{"(", ","}, RetriggerCharacters: []string{")"}},
-			ExecuteCommandProvider:    &protocol.ExecuteCommandOptions{Commands: commands},
+			InlayHintProvider:         true,
+			CodeActionProvider: &protocol.CodeActionOptions{
+				CodeActionKinds: []string{protocol.QuickFix, protocol.RefactorRewrite, protocol.SourceOrganizeImports},
+			},
+			ExecuteCommandProvider: &protocol.ExecuteCommandOptions{Commands: commands},
 			Workspace: &protocol.WorkspaceOptions{
 				WorkspaceFolders: &protocol.WorkspaceFoldersServerCapabilities{Supported: true, ChangeNotifications: true},
 			},

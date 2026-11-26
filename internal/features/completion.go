@@ -874,48 +874,21 @@ func (cc *completer) overrides(ctx context.Context) error {
 	s := cc.s
 	text := s.f.Mapper.Text()
 	typed := text[s.declStart:s.start]
-	spliced := NewFile(s.f.URI, s.f.Snapshot.Path(), text[:s.declStart]+overridePrefix+analysis.Placeholder+" }"+text[s.end:], s.f.Mapper.Encoding())
-	at := s.declStart + len(overridePrefix)
-	ph := spliced.Snapshot.NodeAt(at)
-	body := ph
-	for body.Valid() && body.NumericKind() != psi.KindCLASS_BODY {
-		body = body.Parent()
-	}
-	if !body.Valid() {
-		return nil
-	}
-	cls := body.Parent()
-	req := &analysis.Complete{Path: s.f.Snapshot.Path(), Match: func(name string) bool {
+	a, items, err := superMembers(ctx, cc.c, s.f, s.declStart, s.end, "", "", func(name string) bool {
 		_, ok := cc.match(name)
 		return ok
-	}}
-	a, err := cc.c.Complete(ctx, spliced, req)
+	})
 	if err != nil || a == nil {
 		return err
 	}
 	cc.a = a
-	comp := a.Result.Completion()
-	if comp == nil || !comp.Found {
-		return nil
-	}
-	clsRange := cls.Range()
 	indent := lineIndent(text, s.declStart)
 	wantFun, wantProp := !hasWord(typed, "val") && !hasWord(typed, "var"), !hasWord(typed, "fun")
-	for _, ci := range comp.Items {
-		if ci.Level != 1 || ci.Extension || ci.Modality == "final" || ci.Modality == "" {
-			continue
-		}
-		if ci.Kind == "function" && (!wantFun || ci.Call == nil) || ci.Kind == "property" && !wantProp ||
-			ci.Kind != "function" && ci.Kind != "property" {
+	for _, ci := range items {
+		if ci.Kind == "function" && !wantFun || ci.Kind == "property" && !wantProp {
 			continue
 		}
 		sym, _ := a.Result.Symbol(ci.Symbol)
-		if sym.Declaration != nil {
-			if df, dn, ok := a.Node(*sym.Declaration); ok && df.Snapshot.ID() == spliced.Snapshot.ID() &&
-				dn.Range().Start >= clsRange.Start && dn.Range().End <= clsRange.End {
-				continue // the class's own
-			}
-		}
 		label, code := overrideCode(ci, indent)
 		it := protocol.CompletionItem{
 			Label: label, Kind: protocol.CompletionMethod, FilterText: typed + ci.Name,
@@ -936,6 +909,46 @@ func (cc *completer) overrides(ctx context.Context) error {
 		cc.items = append(cc.items, scored{it, groupMember, score, 0})
 	}
 	return nil
+}
+
+// superMembers returns the members of a class's supertypes that its body
+// could override, open or abstract, whose names match: what the code
+// could name after this in a function that replaces text[at:end] of f,
+// written there between before and after, in the class's body.
+func superMembers(ctx context.Context, c Completer, f *File, at, end int, before, after string, match func(string) bool) (*Analysis, []analysis.CompletionItem, error) {
+	text := f.Mapper.Text()
+	spliced := NewFile(f.URI, f.Snapshot.Path(), text[:at]+before+overridePrefix+analysis.Placeholder+" }"+after+text[end:], f.Mapper.Encoding())
+	body := spliced.Snapshot.NodeAt(at + len(before) + len(overridePrefix))
+	for body.Valid() && body.NumericKind() != psi.KindCLASS_BODY {
+		body = body.Parent()
+	}
+	if !body.Valid() {
+		return nil, nil, nil
+	}
+	clsRange := body.Parent().Range()
+	a, err := c.Complete(ctx, spliced, &analysis.Complete{Path: f.Snapshot.Path(), Match: match})
+	if err != nil || a == nil {
+		return nil, nil, err
+	}
+	comp := a.Result.Completion()
+	if comp == nil || !comp.Found {
+		return a, nil, nil
+	}
+	var out []analysis.CompletionItem
+	for _, ci := range comp.Items {
+		if ci.Level != 1 || ci.Extension || ci.Modality == "final" || ci.Modality == "" ||
+			ci.Kind == "function" && ci.Call == nil || ci.Kind != "function" && ci.Kind != "property" {
+			continue
+		}
+		if sym, _ := a.Result.Symbol(ci.Symbol); sym.Declaration != nil {
+			if df, dn, ok := a.Node(*sym.Declaration); ok && df.Snapshot.ID() == spliced.Snapshot.ID() &&
+				dn.Range().Start >= clsRange.Start && dn.Range().End <= clsRange.End {
+				continue // the class's own
+			}
+		}
+		out = append(out, ci)
+	}
+	return a, out, nil
 }
 
 // overrideCode returns the label and code of the override of a member,

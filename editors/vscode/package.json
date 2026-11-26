@@ -73,6 +73,31 @@
           ],
           "default": "off",
           "description": "Trace the messages between VS Code and the language server in its output channel."
+        },
+        "kcls.hints.types": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the inferred types of variables, properties and expression-bodied functions that don't declare them, unless the initializer makes them plain (a literal, a constructor call, a cast)."
+        },
+        "kcls.hints.parameterNames": {
+          "type": "string",
+          "enum": [
+            "none",
+            "literals",
+            "all"
+          ],
+          "enumDescriptions": [
+            "No parameter name hints.",
+            "Name the parameters that literal arguments are passed to.",
+            "Name the parameter of every positional argument."
+          ],
+          "default": "literals",
+          "description": "Show the names of the parameters that positional arguments are passed to."
+        },
+        "kcls.hints.lambdas": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Show a lambda's implicit parameter `it` and its receiver `this`, with their types."
         }
       }
     },

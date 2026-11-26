@@ -1,0 +1,113 @@
+==== fixes.kt
+== 21:1  class 'Person' is not abstract and does not implement abstract member 'greet'
+  Implement members [quickfix] (preferred)
+    21:23-22:1 "\n" -> "\n    override fun greet(other: String): String {\n        TODO(\"Not yet implemented\")\n    }\n\n    override val name: String\n        get() = TODO(\"Not yet implemented\")\n"
+== 21:1  class 'Person' is not abstract and does not implement abstract member 'name'
+  Implement members [quickfix] (preferred)
+    21:23-22:1 "\n" -> "\n    override fun greet(other: String): String {\n        TODO(\"Not yet implemented\")\n    }\n\n    override val name: String\n        get() = TODO(\"Not yet implemented\")\n"
+== 24:1  class 'Nobody' is not abstract and does not implement abstract member 'greet'
+  Implement members [quickfix] (preferred)
+    24:22-24:22 "" -> " {\n    override fun greet(other: String): String {\n        TODO(\"Not yet implemented\")\n    }\n\n    override val name: String\n        get() = TODO(\"Not yet implemented\")\n}"
+== 24:1  class 'Nobody' is not abstract and does not implement abstract member 'name'
+  Implement members [quickfix] (preferred)
+    24:22-24:22 "" -> " {\n    override fun greet(other: String): String {\n        TODO(\"Not yet implemented\")\n    }\n\n    override val name: String\n        get() = TODO(\"Not yet implemented\")\n}"
+== 26:34  'when' expression must be exhaustive, add necessary 'else' branch
+  Add remaining branches [quickfix] (preferred)
+    28:1-28:1 "" -> "    Color.GREEN -> TODO()\n    Color.BLUE -> TODO()\n"
+  Add 'else' branch [quickfix]
+    28:1-28:1 "" -> "    else -> TODO()\n"
+== 30:30  'when' expression must be exhaustive, add necessary 'else' branch
+  Add remaining branches [quickfix] (preferred)
+    32:1-32:1 "" -> "    Shape.Dot -> TODO()\n    is Shape.Square -> TODO()\n"
+  Add 'else' branch [quickfix]
+    32:1-32:1 "" -> "    else -> TODO()\n"
+== 40:13  unresolved reference: measureTime
+  Import 'kotlin.time.measureTime' [quickfix] (preferred)
+    6:23-6:23 "" -> "\nimport kotlin.time.measureTime"
+== 51:15  cannot access 'java.io.Serializable' which is a supertype of 'kotlin.random.Random.Default'. Check your module classpath for missing or conflicting dependencies
+== 35:5 UNUSED_VARIABLE variable 'never' is never used
+  Remove variable 'never' [quickfix]
+    35:1-36:1 "    val never = 42\n" -> ""
+  Suppress 'UNUSED_VARIABLE' for property never [quickfix]
+    35:5-35:5 "" -> "@Suppress(\"UNUSED_VARIABLE\")\n    "
+  Suppress 'UNUSED_VARIABLE' for function unused [quickfix]
+    34:1-34:1 "" -> "@Suppress(\"UNUSED_VARIABLE\")\n"
+  Suppress 'UNUSED_VARIABLE' for file fixes.kt [quickfix]
+    1:1-1:1 "" -> "@file:Suppress(\"UNUSED_VARIABLE\")\n\n"
+== 36:5 UNUSED_VARIABLE variable 'alsoNever' is never used
+  Remove variable 'alsoNever' [quickfix]
+    36:5-36:21 "val alsoNever = " -> ""
+  Suppress 'UNUSED_VARIABLE' for property alsoNever [quickfix]
+    36:5-36:5 "" -> "@Suppress(\"UNUSED_VARIABLE\")\n    "
+  Suppress 'UNUSED_VARIABLE' for function unused [quickfix]
+    34:1-34:1 "" -> "@Suppress(\"UNUSED_VARIABLE\")\n"
+  Suppress 'UNUSED_VARIABLE' for file fixes.kt [quickfix]
+    1:1-1:1 "" -> "@file:Suppress(\"UNUSED_VARIABLE\")\n\n"
+== 38:22 UNNECESSARY_SAFE_CALL unnecessary safe call on a non-null receiver of type 'String'
+  Replace '?.' with '.' [quickfix]
+    38:20-38:22 "?." -> "."
+  Suppress 'UNNECESSARY_SAFE_CALL' for function unused [quickfix]
+    34:1-34:1 "" -> "@Suppress(\"UNNECESSARY_SAFE_CALL\")\n"
+  Suppress 'UNNECESSARY_SAFE_CALL' for file fixes.kt [quickfix]
+    1:1-1:1 "" -> "@file:Suppress(\"UNNECESSARY_SAFE_CALL\")\n\n"
+== 39:21 USELESS_CAST cast is redundant
+  Remove useless cast [quickfix]
+    39:20-39:30 " as String" -> ""
+  Suppress 'USELESS_CAST' for function unused [quickfix]
+    34:1-34:1 "" -> "@Suppress(\"USELESS_CAST\")\n"
+  Suppress 'USELESS_CAST' for file fixes.kt [quickfix]
+    1:1-1:1 "" -> "@file:Suppress(\"USELESS_CAST\")\n\n"
+== 42:25 UNUSED_ANONYMOUS_PARAMETER parameter 'x: Int' is never used, consider renaming it to '_'.
+  Rename to _ [quickfix]
+    42:25-42:26 "x" -> "_"
+  Suppress 'UNUSED_ANONYMOUS_PARAMETER' for function unused [quickfix]
+    34:1-34:1 "" -> "@Suppress(\"UNUSED_ANONYMOUS_PARAMETER\")\n"
+  Suppress 'UNUSED_ANONYMOUS_PARAMETER' for file fixes.kt [quickfix]
+    1:1-1:1 "" -> "@file:Suppress(\"UNUSED_ANONYMOUS_PARAMETER\")\n\n"
+== 45:1 REDUNDANT_VISIBILITY_MODIFIER redundant visibility modifier
+  Remove redundant 'public' modifier [quickfix]
+    45:1-45:8 "public " -> ""
+  Suppress 'REDUNDANT_VISIBILITY_MODIFIER' for function visible [quickfix]
+    45:1-45:1 "" -> "@Suppress(\"REDUNDANT_VISIBILITY_MODIFIER\")\n"
+  Suppress 'REDUNDANT_VISIBILITY_MODIFIER' for file fixes.kt [quickfix]
+    1:1-1:1 "" -> "@file:Suppress(\"REDUNDANT_VISIBILITY_MODIFIER\")\n\n"
+== 3:1 UNUSED_IMPORT unused import directive
+  Remove unused import [quickfix]
+    3:1-4:1 "import kotlin.math.min\n" -> ""
+== 4:1 UNUSED_IMPORT unused import directive
+  Remove unused import [quickfix]
+    4:1-5:1 "import kotlin.collections.ArrayList\n" -> ""
+== intentions
+  Specify type explicitly [refactor.rewrite]
+    35:14-35:14 "" -> ": Int"
+  Specify type explicitly [refactor.rewrite]
+    36:18-36:18 "" -> ": Int?"
+  Specify type explicitly [refactor.rewrite]
+    37:16-37:16 "" -> ": String"
+  Add names to call arguments [refactor.rewrite]
+    38:13-38:13 "" -> "message = "
+  Add names to call arguments [refactor.rewrite]
+    39:13-39:13 "" -> "message = "
+  Add names to call arguments [refactor.rewrite]
+    41:17-41:17 "" -> "n = "
+  Add names to call arguments [refactor.rewrite]
+    42:12-42:12 "" -> "element = "
+  Specify type explicitly [refactor.rewrite]
+    45:44-45:44 "" -> ": Int"
+  Specify type explicitly [refactor.rewrite]
+    48:10-48:10 "" -> ": Int"
+  Add names to call arguments [refactor.rewrite]
+    48:21-48:21 "" -> "width = "
+    48:24-48:24 "" -> "height = "
+  Add names to call arguments [refactor.rewrite]
+    49:13-49:13 "" -> "message = "
+  Specify type explicitly [refactor.rewrite]
+    50:10-50:10 "" -> ": Default"
+    6:23-6:23 "" -> "\nimport kotlin.random.Random.Default"
+  Add names to call arguments [refactor.rewrite]
+    51:13-51:13 "" -> "message = "
+  Add names to call arguments [refactor.rewrite]
+    51:23-51:23 "" -> "from = "
+== source
+  Organize imports [source.organizeImports]
+    3:1-6:23 "import kotlin.math.min\nimport kotlin.collections.ArrayList\nimport kotlin.math.abs\nimport kotlin.math.abs" -> "import kotlin.math.abs"

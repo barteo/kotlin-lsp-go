@@ -66,6 +66,9 @@ async function start(context: vscode.ExtensionContext): Promise<void> {
     documentSelector: [{ scheme: "file", language: "kotlin" }],
     outputChannel: output,
     traceOutputChannel: output,
+    // The kcls.hints settings, at start and as they change.
+    initializationOptions: { hints: config.get("hints") },
+    synchronize: { configurationSection: "kcls" },
   };
   client = new LanguageClient("kcls", "Kotlin (kcls)", serverOptions, clientOptions);
   try {

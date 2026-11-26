@@ -1,0 +1,33 @@
+==== hints.kt {Types:true ParameterNames:literals Lambdas:true}
+5:34 ": Int"  fun area(width: Int, height: Int)⟨: Int⟩ = width * height
+9:10 ": Int"  val shown⟨: Int⟩ = area(2, 3)
+9:18 "width:"  val shown = area(⟨width:⟩2, 3)
+9:21 "height:"  val shown = area(2, ⟨height:⟩3)
+15:14 ": Int"  val total⟨: Int⟩ = area(4, height = 5)
+15:22 "width:"  val total = area(⟨width:⟩4, height = 5)
+16:11 ": Int"  val (a⟨: Int⟩, b) = Pair(1, "two")
+16:14 ": String"  val (a, b⟨: String⟩) = Pair(1, "two")
+16:23 "first:"  val (a, b) = Pair(⟨first:⟩1, "two")
+16:26 "second:"  val (a, b) = Pair(1, ⟨second:⟩"two")
+17:11 ": Int"  for (x⟨: Int⟩ in listOf(1, 2)) {
+20:14 ": List<Int>"  val names⟨: List<Int>⟩ = listOf("a", "b").map { it.length }
+20:39 "it: String"  val names = listOf("a", "b").map {⟨it: String⟩ it.length }
+21:14 ": String"  val built⟨: String⟩ = buildString { append(total) }
+21:30 "this: StringBuilder"  val built = buildString {⟨this: StringBuilder⟩ append(total) }
+22:11 "name:"  greet(⟨name:⟩"Ann", true)
+22:18 "loud:"  greet("Ann", ⟨loud:⟩true)
+25:17 "height:"  area(width, ⟨height:⟩-1)
+==== hints.kt {Types:false ParameterNames:all Lambdas:false}
+9:18 "width:"  val shown = area(⟨width:⟩2, 3)
+9:21 "height:"  val shown = area(2, ⟨height:⟩3)
+10:19 "value:"  val obvious = Box(⟨value:⟩1)
+15:22 "width:"  val total = area(⟨width:⟩4, height = 5)
+16:23 "first:"  val (a, b) = Pair(⟨first:⟩1, "two")
+16:26 "second:"  val (a, b) = Pair(1, ⟨second:⟩"two")
+17:22 "...elements:"  for (x in listOf(⟨...elements:⟩1, 2)) {
+18:17 "message:"  println(⟨message:⟩x)
+20:24 "...elements:"  val names = listOf(⟨...elements:⟩"a", "b").map { it.length }
+22:11 "name:"  greet(⟨name:⟩"Ann", true)
+22:18 "loud:"  greet("Ann", ⟨loud:⟩true)
+23:11 "name:"  greet(⟨name:⟩literal, loud = false)
+25:17 "height:"  area(width, ⟨height:⟩-1)

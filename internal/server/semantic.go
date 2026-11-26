@@ -134,6 +134,7 @@ func (s *Server) refreshAll() {
 	if s.refreshTokens {
 		go s.refreshSemanticTokens()
 	}
+	s.refreshInlayHints()
 	if s.pullDiagnostics {
 		if s.refreshDiagnostics {
 			go func() {

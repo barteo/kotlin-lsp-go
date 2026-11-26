@@ -23,9 +23,10 @@ type client struct {
 	code  chan int
 	diags chan protocol.PublishDiagnosticsParams
 
-	mu         sync.Mutex
-	registered []string
-	refreshes  int
+	mu            sync.Mutex
+	registered    []string
+	refreshes     int
+	hintRefreshes int
 }
 
 func start(t *testing.T) *client {
@@ -46,6 +47,10 @@ func start(t *testing.T) *client {
 		case "workspace/diagnostic/refresh":
 			c.mu.Lock()
 			c.refreshes++
+			c.mu.Unlock()
+		case "workspace/inlayHint/refresh":
+			c.mu.Lock()
+			c.hintRefreshes++
 			c.mu.Unlock()
 		case "client/registerCapability":
 			var p protocol.RegistrationParams
