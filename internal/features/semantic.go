@@ -60,6 +60,10 @@ func targetAt(a *Analysis, f *File, pos protocol.Position) (target, bool) {
 		if !ok || fa.Symbol == 0 && fa.Call == nil && fa.Type == nil {
 			continue
 		}
+		if fa.Symbol == 0 && fa.Call == nil && isCallee(n) {
+			// An unresolved call: a callee's type is its receiver's.
+			return target{}, false
+		}
 		t.node, t.fact = n, fa
 		if n.NumericKind() == psi.KindREFERENCE_EXPRESSION || n.NumericKind() == psi.KindOPERATION_REFERENCE {
 			t.origin = n
@@ -70,6 +74,12 @@ func targetAt(a *Analysis, f *File, pos protocol.Position) (target, bool) {
 		return t, true
 	}
 	return target{}, false
+}
+
+// isCallee reports whether a reference is the callee of a call.
+func isCallee(n psi.NodeRef) bool {
+	p := n.Parent()
+	return n.NumericKind() == psi.KindREFERENCE_EXPRESSION && p.NumericKind() == psi.KindCALL_EXPRESSION && p.FirstChild() == n
 }
 
 // identifierAt returns the identifier or keyword leaf at off, or the one

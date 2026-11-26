@@ -13,5 +13,6 @@ fun main() {
     val big: /*|*/Shape? = /*|*/largest(circles)
     println(/*|*/big?.name + /*|*/total)
     /*|*/undefined(total)
+    big?./*|*/nope()
     val n = 1 as Int
 }
