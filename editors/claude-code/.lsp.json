@@ -1,0 +1,13 @@
+{
+  "kcls": {
+    "command": "kcls",
+    "args": [],
+    "extensionToLanguage": {
+      ".kt": "kotlin",
+      ".kts": "kotlin"
+    },
+    "startupTimeout": 10000,
+    "restartOnCrash": true,
+    "maxRestarts": 3
+  }
+}

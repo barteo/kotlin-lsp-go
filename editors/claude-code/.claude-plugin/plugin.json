@@ -1,0 +1,8 @@
+{
+  "name": "kcls",
+  "version": "0.0.1",
+  "description": "Kotlin code intelligence from kcls, the Kotlin language server built on the kc compiler",
+  "license": "Apache-2.0",
+  "repository": "https://github.com/barteo/kotlin-compiler-go",
+  "keywords": ["kotlin", "lsp"]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "kotlin-compiler-go",
+  "description": "Plugins from the kc Kotlin compiler repository",
+  "owner": { "name": "kotlin-compiler-go" },
+  "plugins": [
+    {
+      "name": "kcls",
+      "source": "./editors/claude-code",
+      "description": "Kotlin code intelligence (kcls) for .kt and .kts files"
+    }
+  ]
+}
