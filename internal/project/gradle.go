@@ -188,17 +188,19 @@ func fromGradle(root string, gm *gradleModel) *Workspace {
 		}
 		name := sourceSetName(gmod.Task)
 		m := &Module{
-			ID:          strings.TrimSuffix(gmod.Project, ":") + ":" + name,
-			ModuleName:  gmod.ModuleName,
-			ClassPath:   gmod.ClassPath,
-			FriendPaths: gmod.FriendPaths,
-			JDKHome:     gmod.JDKHome,
-			NoJDK:       gmod.NoJDK,
-			JVMTarget:   gmod.JVMTarget,
-			ExplicitAPI: gmod.ExplicitAPI,
-			Plugins:     gmod.Plugins,
-			OptIns:      gmod.OptIns,
-			Output:      gmod.Output,
+			ID:            strings.TrimSuffix(gmod.Project, ":") + ":" + name,
+			ModuleName:    gmod.ModuleName,
+			ClassPath:     gmod.ClassPath,
+			FriendPaths:   gmod.FriendPaths,
+			JDKHome:       gmod.JDKHome,
+			NoJDK:         gmod.NoJDK,
+			JVMTarget:     gmod.JVMTarget,
+			ExplicitAPI:   gmod.ExplicitAPI,
+			Plugins:       gmod.Plugins,
+			OptIns:        gmod.OptIns,
+			Output:        gmod.Output,
+			MultiPlatform: gmod.MultiPlatform,
+			Dir:           gmod.ProjectDir,
 		}
 		if m.ModuleName == "" {
 			m.ModuleName = name
@@ -307,7 +309,8 @@ func workspaceCache(dir, root string) string {
 func buildFile(name string) bool {
 	switch name {
 	case "settings.gradle.kts", "settings.gradle", "build.gradle.kts", "build.gradle",
-		"gradle.properties", "libs.versions.toml", "gradle-wrapper.properties":
+		"gradle.properties", "libs.versions.toml", "gradle-wrapper.properties",
+		"pom.xml", "maven.config", "maven-wrapper.properties":
 		return true
 	}
 	return false

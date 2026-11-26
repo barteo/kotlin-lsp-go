@@ -141,12 +141,31 @@ func (e *Engine) AddRoot(path string) {
 	e.logf("engine: %s: %s model, %d modules", path, ws.Source, len(ws.Modules))
 	e.mu.Lock()
 	e.roots = append(e.roots, r)
+	e.relink(r, true)
 	e.mu.Unlock()
 	if stale && !e.opts.NoImport {
 		e.mu.Lock()
 		r.provisional = ws.Source == "folder"
 		e.mu.Unlock()
 		e.startImport(r)
+	}
+}
+
+// relink forgets the modules of the workspace folders other than r that
+// its model's change may change: those that use another folder's modules,
+// and, if all is set, every one, as they may now use r's. The caller
+// holds e.mu.
+func (e *Engine) relink(r *root, all bool) {
+	for _, o := range e.roots {
+		if o == r {
+			continue
+		}
+		for id, m := range o.modules {
+			if all && o.ws.Source != "folder" || m.cross {
+				m.close()
+				delete(o.modules, id)
+			}
+		}
 	}
 }
 
@@ -164,6 +183,7 @@ func (e *Engine) RemoveRoot(path string) {
 		closeModules(r.modules)
 		return true
 	})
+	e.relink(nil, false)
 }
 
 // Roots returns the workspace folders' paths.
@@ -204,10 +224,14 @@ func (e *Engine) startImport(r *root) {
 		defer cancel()
 		end := func(string) {}
 		if e.opts.Progress != nil {
-			end = e.opts.Progress("Importing the Gradle build of " + filepath.Base(r.path))
+			build := "Gradle"
+			if project.Detect(r.path) == "maven" {
+				build = "Maven"
+			}
+			end = e.opts.Progress("Importing the " + build + " build of " + filepath.Base(r.path))
 		}
 		start := time.Now()
-		ws, err := project.ImportGradle(ctx, r.path, project.GradleOptions{Logf: e.logf, CacheDir: e.opts.CacheDir})
+		ws, err := project.Import(ctx, r.path, project.GradleOptions{Logf: e.logf, CacheDir: e.opts.CacheDir})
 		e.mu.Lock()
 		superseded := r.importing != done
 		if !superseded {
@@ -215,6 +239,7 @@ func (e *Engine) startImport(r *root) {
 			if err == nil {
 				closeModules(r.modules)
 				r.ws, r.modules = ws, map[string]*module{}
+				e.relink(r, true)
 			}
 			r.provisional = false
 		}
@@ -238,7 +263,7 @@ func (e *Engine) startImport(r *root) {
 }
 
 // Reimport reads every workspace's model again: its kcls.json, or its
-// Gradle build, which is imported in the background.
+// Gradle or Maven build, which is imported in the background.
 func (e *Engine) Reimport() {
 	e.mu.Lock()
 	roots := slices.Clone(e.roots)
@@ -250,7 +275,7 @@ func (e *Engine) Reimport() {
 
 func (e *Engine) reimport(r *root) {
 	switch project.Detect(r.path) {
-	case "gradle":
+	case "gradle", "maven":
 		if !e.opts.NoImport {
 			e.startImport(r)
 			return
@@ -263,6 +288,7 @@ func (e *Engine) reimport(r *root) {
 	e.mu.Lock()
 	closeModules(r.modules)
 	r.ws, r.modules, r.provisional = ws, map[string]*module{}, false
+	e.relink(r, true)
 	e.mu.Unlock()
 	if e.opts.OnModel != nil {
 		e.opts.OnModel(r.path, err)
@@ -412,6 +438,21 @@ func (e *Engine) RunModule(ctx context.Context, path string) (*project.Workspace
 		}
 	}
 	return ws, m.pm, m.deps, nil
+}
+
+// UnsupportedSourceSet returns the multiplatform source set of the file
+// at path when the file is in a workspace with a model, Gradle's, Maven's
+// or kcls.json's, but in none of its modules because no JVM compilation
+// compiles it, as jsMain: kcls analyzes it on its own.
+func (e *Engine) UnsupportedSourceSet(path string) string {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	for _, r := range e.roots {
+		if within(path, r.path) && r.ws.Source != "folder" && r.ws.Module(path) == nil {
+			return project.NonJVMSourceSet(path)
+		}
+	}
+	return ""
 }
 
 // within reports whether path is dir or inside it.

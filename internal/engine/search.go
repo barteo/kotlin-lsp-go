@@ -11,7 +11,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/project"
 )
 
 // Texts is implemented by a Files that knows the text of the documents
@@ -40,7 +39,7 @@ func (e *Engine) Search(ctx context.Context, words []string, from string) ([]Sco
 	var cands []cand
 	for _, m := range mods {
 		var paths []string
-		for _, p := range m.sources()[m.pm.ID] {
+		for _, p := range m.sources()[m.pm] {
 			if !strings.HasSuffix(p, ".kt") {
 				continue
 			}
@@ -109,7 +108,7 @@ func (e *Engine) searchModules(ctx context.Context, from string) ([]*module, err
 				m = e.newModule(r, pm)
 				r.modules[pm.ID] = m
 			}
-			if fm == nil || m == fm || slices.ContainsFunc(m.deps, func(d *project.Module) bool { return d.ID == fm.pm.ID }) && sameRoot(r, fm) {
+			if fm == nil || m == fm || slices.Contains(m.deps, fm.pm) {
 				out = append(out, m)
 			}
 		}
@@ -119,8 +118,6 @@ func (e *Engine) searchModules(ctx context.Context, from string) ([]*module, err
 	}
 	return out, nil
 }
-
-func sameRoot(r *root, m *module) bool { return r.modules[m.pm.ID] == m }
 
 // text returns the text of the file at path: the client's if it opened
 // it, else the file on disk, which is read again when it changes.

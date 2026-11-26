@@ -1,11 +1,12 @@
 // Package project finds the modules of a workspace: their sources, class
 // paths and compiler settings. A workspace is described, in this order
-// of preference, by a kcls.json file at its root, by its Gradle build, or
-// else as one module of every Kotlin file under the root, compiled
+// of preference, by a kcls.json file at its root, by its Gradle build, by
+// its Maven build, or else as one module of every Kotlin file under the root, compiled
 // against the JDK and the Kotlin standard library kc finds.
 package project
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/fs"
@@ -22,8 +23,8 @@ import (
 // Workspace is the modules of a workspace folder.
 type Workspace struct {
 	Root string
-	// Source says where the model comes from: "kcls.json", "gradle" or
-	// "folder".
+	// Source says where the model comes from: "kcls.json", "gradle",
+	// "maven" or "folder".
 	Source  string
 	Modules []*Module
 	// SourceJars maps a class path jar to the jar of its sources, where
@@ -60,6 +61,12 @@ type Module struct {
 	ExplicitAPI string   `json:",omitempty"`
 	Plugins     []string `json:",omitempty"`
 	OptIns      []string `json:",omitempty"`
+	// MultiPlatform compiles expect and actual declarations, as kotlinc's
+	// -Xmulti-platform: a multiplatform module's JVM sources.
+	MultiPlatform bool `json:",omitempty"`
+	// Dir is the build's project directory of the module: a Gradle
+	// project's or a Maven module's. Empty for other workspaces.
+	Dir string `json:",omitempty"`
 	// Output is where the build writes the module's classes. A module
 	// whose class path has another's Output depends on it.
 	Output string `json:",omitempty"`
@@ -191,19 +198,21 @@ const ConfigFile = "kcls.json"
 // file's directory.
 type configJSON struct {
 	Modules []struct {
-		Name        string   `json:"name"`
-		ModuleName  string   `json:"moduleName"`
-		Roots       []string `json:"roots"`
-		Files       []string `json:"files"`
-		ClassPath   []string `json:"classPath"`
-		FriendPaths []string `json:"friendPaths"`
-		JDKHome     string   `json:"jdkHome"`
-		NoJDK       bool     `json:"noJdk"`
-		JVMTarget   string   `json:"jvmTarget"`
-		ExplicitAPI string   `json:"explicitApi"`
-		Plugins     []string `json:"plugins"`
-		OptIns      []string `json:"optIns"`
-		DependsOn   []string `json:"dependsOn"`
+		Name          string   `json:"name"`
+		ModuleName    string   `json:"moduleName"`
+		Roots         []string `json:"roots"`
+		Files         []string `json:"files"`
+		ClassPath     []string `json:"classPath"`
+		FriendPaths   []string `json:"friendPaths"`
+		JDKHome       string   `json:"jdkHome"`
+		NoJDK         bool     `json:"noJdk"`
+		JVMTarget     string   `json:"jvmTarget"`
+		ExplicitAPI   string   `json:"explicitApi"`
+		Plugins       []string `json:"plugins"`
+		OptIns        []string `json:"optIns"`
+		MultiPlatform bool     `json:"multiPlatform"`
+		Output        string   `json:"output"`
+		DependsOn     []string `json:"dependsOn"`
 		// Stdlib adds the Kotlin standard library kc finds to the class
 		// path; true unless set to false.
 		Stdlib *bool `json:"stdlib"`
@@ -247,7 +256,7 @@ func LoadConfig(root string) (*Workspace, error) {
 			ID: cm.Name, ModuleName: cm.ModuleName, Roots: absAll(cm.Roots), Files: absAll(cm.Files),
 			ClassPath: absAll(cm.ClassPath), FriendPaths: absAll(cm.FriendPaths), JDKHome: abs(cm.JDKHome),
 			NoJDK: cm.NoJDK, JVMTarget: cm.JVMTarget, ExplicitAPI: cm.ExplicitAPI, Plugins: cm.Plugins,
-			OptIns: cm.OptIns, DependsOn: cm.DependsOn,
+			OptIns: cm.OptIns, MultiPlatform: cm.MultiPlatform, Output: abs(cm.Output), DependsOn: cm.DependsOn,
 		}
 		if m.ID == "" {
 			m.ID = fmt.Sprintf("module%d", i+1)
@@ -323,16 +332,16 @@ func FindJDK() string {
 }
 
 // Load returns the workspace at root as far as it is known without
-// running a build: from its kcls.json, from the Gradle model cached for
-// it, or else as a folder. stale reports that the workspace has a Gradle
-// build whose model is not cached or whose build files changed since:
-// ImportGradle finds it.
+// running a build: from its kcls.json, from the Gradle or Maven model
+// cached for it, or else as a folder. stale reports that the workspace
+// has a build whose model is not cached or whose build files changed
+// since: Import finds it.
 func Load(root, cacheDir string) (w *Workspace, stale bool, err error) {
 	switch Detect(root) {
 	case ConfigFile:
 		w, err := LoadConfig(root)
 		return w, false, err
-	case "gradle":
+	case "gradle", "maven":
 		if w, current := Cached(cacheDir, root); w != nil {
 			return w, !current, nil
 		}
@@ -342,7 +351,7 @@ func Load(root, cacheDir string) (w *Workspace, stale bool, err error) {
 }
 
 // Detect says what describes the workspace at root: "kcls.json",
-// "gradle" or "folder".
+// "gradle", "maven" or "folder".
 func Detect(root string) string {
 	if _, err := os.Stat(filepath.Join(root, ConfigFile)); err == nil {
 		return ConfigFile
@@ -352,5 +361,41 @@ func Detect(root string) string {
 			return "gradle"
 		}
 	}
+	if _, err := os.Stat(filepath.Join(root, "pom.xml")); err == nil {
+		return "maven"
+	}
 	return "folder"
+}
+
+// Import runs the build of the workspace at root, Gradle or Maven, to
+// find its modules.
+func Import(ctx context.Context, root string, opts GradleOptions) (*Workspace, error) {
+	if Detect(root) == "maven" {
+		return ImportMaven(ctx, root, opts)
+	}
+	return ImportGradle(ctx, root, opts)
+}
+
+// nonJVMSets are the prefixes of the multiplatform source sets of
+// targets other than the JVM, and of the shared ones.
+var nonJVMSets = []string{"common", "native", "apple", "ios", "macos", "tvos", "watchos", "linux", "mingw", "androidNative", "js", "wasm"}
+
+// NonJVMSourceSet returns the source set of a multiplatform module that
+// the file at path is in, src/<set>/kotlin, if it is one that may compile
+// for targets other than the JVM only: commonMain, jsMain, iosArm64Test.
+func NonJVMSourceSet(path string) string {
+	parts := strings.Split(filepath.ToSlash(path), "/")
+	for i := len(parts) - 3; i > 0; i-- {
+		if parts[i-1] != "src" || parts[i+1] != "kotlin" {
+			continue
+		}
+		set := parts[i]
+		for _, p := range nonJVMSets {
+			if rest, ok := strings.CutPrefix(set, p); ok && rest != "" && rest[0] >= 'A' && rest[0] <= 'Z' {
+				return set
+			}
+		}
+		return ""
+	}
+	return ""
 }

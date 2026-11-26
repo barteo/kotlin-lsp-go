@@ -507,7 +507,7 @@ func (s *Server) initialized(ctx context.Context) {
 			RegisterOptions: protocol.DidChangeWatchedFilesRegistrationOptions{
 				Watchers: []protocol.FileSystemWatcher{
 					{GlobPattern: "**/*.{kt,kts,java}"},
-					{GlobPattern: "**/{build.gradle,build.gradle.kts,settings.gradle,settings.gradle.kts,gradle.properties,libs.versions.toml,gradle-wrapper.properties,kcls.json}"},
+					{GlobPattern: "**/{build.gradle,build.gradle.kts,settings.gradle,settings.gradle.kts,gradle.properties,libs.versions.toml,gradle-wrapper.properties,pom.xml,maven.config,maven-wrapper.properties,kcls.json}"},
 				},
 			},
 		}}}

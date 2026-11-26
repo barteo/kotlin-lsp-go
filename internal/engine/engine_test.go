@@ -296,3 +296,66 @@ func TestStdlibSources(t *testing.T) {
 		t.Errorf("println in %s", lt.File.Snapshot.Path())
 	}
 }
+
+// TestRoots analyzes a workspace folder with the sources of another's
+// module whose classes its class path has, and follows that folder's
+// model changes.
+func TestRoots(t *testing.T) {
+	needStdlib(t)
+	base, _ := filepath.EvalSymlinks(t.TempDir())
+	lib, app := filepath.Join(base, "lib"), filepath.Join(base, "app")
+	write(t, lib, map[string]string{
+		"kcls.json": `{"modules": [{"name": "lib", "roots": ["src"], "output": "out", "noJdk": true}]}`,
+		"src/L.kt":  "package lib\n\nclass Greeter { fun greet() = 1 }\n",
+	})
+	write(t, app, map[string]string{
+		"kcls.json": `{"modules": [{"name": "app", "roots": ["src"], "classPath": ["../lib/out"], "noJdk": true}]}`,
+		"src/A.kt":  "package app\n\nimport lib.Greeter\n\nfun main() { Greeter().greet() }\n",
+	})
+	os.MkdirAll(filepath.Join(lib, "out"), 0o755)
+	e := newEngine(t, app)
+	ctx := context.Background()
+	path := filepath.Join(app, "src/A.kt")
+	a, err := e.Analyze(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := features.Diagnostics(a, a.File(path)); len(d) == 0 {
+		t.Fatal("Greeter resolves without lib's folder")
+	}
+	e.AddRoot(lib)
+	a, err = e.Analyze(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	af := a.File(path)
+	if d := features.Diagnostics(a, af); len(d) != 0 {
+		t.Errorf("with lib's folder: %+v", d)
+	}
+	links := features.Definition(ctx, a, af, pos(t, af, "greet()"))
+	if len(links) != 1 || !strings.HasSuffix(string(links[0].TargetURI), "lib/src/L.kt") {
+		t.Errorf("definition of greet: %+v", links)
+	}
+	// References to lib's Greeter are searched in app too.
+	scopes, err := e.Search(ctx, []string{"Greeter"}, filepath.Join(lib, "src/L.kt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, s := range scopes {
+		for _, p := range s.Files {
+			found = found || p.Snapshot.Path() == path
+		}
+	}
+	if !found {
+		t.Errorf("search from lib doesn't reach app: %+v", scopes)
+	}
+	e.RemoveRoot(lib)
+	a, err = e.Analyze(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := features.Diagnostics(a, a.File(path)); len(d) == 0 {
+		t.Error("Greeter still resolves after lib's folder is removed")
+	}
+}

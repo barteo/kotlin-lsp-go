@@ -55,7 +55,7 @@ func (e *Engine) WorkspaceSymbols(ctx context.Context, query string) ([]protocol
 	var ms []features.Match
 	seen := map[string]bool{}
 	for _, m := range mods {
-		for _, p := range m.sources()[m.pm.ID] {
+		for _, p := range m.sources()[m.pm] {
 			if ctx.Err() != nil {
 				return nil, ctx.Err()
 			}

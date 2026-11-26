@@ -98,6 +98,11 @@ func TestPlanRun(t *testing.T) {
 	if want := "./gradlew :lib:sub:cleanJvmTest :lib:sub:jvmTest --tests BarTest"; err != nil || plan.Command != want {
 		t.Errorf("a file the model doesn't know: %+v, %v; want %s", plan, err, want)
 	}
+	mvnWS := &project.Workspace{Root: root, Source: "maven"}
+	plan, err = PlanRun(RunArgs{Kind: RunTest, Class: "a.FooTest", Method: "one"}, RunEnv{Path: test, Workspace: mvnWS, Module: &project.Module{ID: "app:test", Dir: filepath.Join(root, "app")}})
+	if want := "mvn -pl app -am test '-Dtest=a.FooTest#one' -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false"; err != nil || plan.Command != want {
+		t.Errorf("maven: %+v, %v; want %s", plan, err, want)
+	}
 	for set, task := range map[string]string{"test": "test", "testJvm": "jvmTest", "debugUnitTest": "testDebugUnitTest", "integrationTest": "integrationTest"} {
 		if got := testTask(set); got != task {
 			t.Errorf("testTask(%s) = %s, want %s", set, got, task)

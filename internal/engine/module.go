@@ -20,6 +20,8 @@ type module struct {
 	e    *Engine
 	pm   *project.Module
 	deps []*project.Module // the modules it depends on, transitively
+	// cross reports that some of deps are another workspace folder's.
+	cross bool
 
 	libMu  sync.Mutex
 	lib    *analysis.Library
@@ -27,7 +29,7 @@ type module struct {
 	srcJar []string // sources jars and src.zip for its class path
 
 	mu       sync.Mutex
-	srcs     map[string][]string // a module's source files, by module ID
+	srcs     map[*project.Module][]string // a module's source files
 	srcsAt   time.Time
 	last     *features.Analysis
 	lastKey  []*features.File
@@ -65,8 +67,49 @@ func (e *Engine) newModule(r *root, pm *project.Module) *module {
 				m.srcJar = append(m.srcJar, j)
 			}
 		}
+		// The modules of other workspace folders whose classes it uses,
+		// as an included build's, and theirs.
+		for _, o := range e.roots {
+			if o == r {
+				continue
+			}
+			for _, q := range o.ws.Modules {
+				if seen[o.path+"\x00"+q.ID] || !builds(q, pm.ClassPath) {
+					continue
+				}
+				seen[o.path+"\x00"+q.ID] = true
+				m.deps = append(m.deps, q)
+				m.cross = true
+				for _, id := range q.DependsOn {
+					if d := o.ws.ByID(id); d != nil && !seen[o.path+"\x00"+id] {
+						seen[o.path+"\x00"+id] = true
+						m.deps = append(m.deps, d)
+					}
+				}
+			}
+		}
 	}
 	return m
+}
+
+// builds reports whether a class path has the classes of a module that
+// isn't a test module: its output directory, or a jar its build writes
+// (Gradle's build/libs, Maven's target).
+func builds(q *project.Module, classPath []string) bool {
+	id := strings.ToLower(q.ID[strings.LastIndexByte(q.ID, ':')+1:])
+	if strings.Contains(id, "test") {
+		return false
+	}
+	for _, e := range classPath {
+		switch {
+		case q.Output != "" && within(e, q.Output):
+			return true
+		case q.Dir != "" && strings.HasSuffix(e, ".jar") &&
+			(filepath.Dir(e) == filepath.Join(q.Dir, "build", "libs") || filepath.Dir(e) == filepath.Join(q.Dir, "target")):
+			return true
+		}
+	}
+	return false
 }
 
 func (m *module) close() {
@@ -158,15 +201,15 @@ func (m *module) library() (*analysis.Library, error) {
 
 // sources returns the source files of the module and of those it depends
 // on, listing the directories again when the list is older than the TTL.
-func (m *module) sources() map[string][]string {
+func (m *module) sources() map[*project.Module][]string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if m.srcs != nil && time.Since(m.srcsAt) < m.e.opts.SourcesTTL {
 		return m.srcs
 	}
-	srcs := map[string][]string{m.pm.ID: m.pm.Sources()}
+	srcs := map[*project.Module][]string{m.pm: m.pm.Sources()}
 	for _, d := range m.deps {
-		srcs[d.ID] = d.Sources()
+		srcs[d] = d.Sources()
 	}
 	m.srcs, m.srcsAt = srcs, time.Now()
 	return srcs
@@ -191,7 +234,7 @@ func (m *module) files(path string) (files []*features.File, own []string, err e
 		}
 		return nil
 	}
-	mine := srcs[m.pm.ID]
+	mine := srcs[m.pm]
 	if !slices.Contains(mine, path) {
 		if err := add(path, true); err != nil {
 			return nil, nil, err
@@ -203,7 +246,7 @@ func (m *module) files(path string) (files []*features.File, own []string, err e
 		}
 	}
 	for _, d := range m.deps {
-		for _, p := range srcs[d.ID] {
+		for _, p := range srcs[d] {
 			add(p, false)
 		}
 	}

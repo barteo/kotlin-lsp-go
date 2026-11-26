@@ -65,9 +65,18 @@ func PlanRun(a RunArgs, env RunEnv) (*RunPlan, error) {
 	default:
 		return nil, fmt.Errorf("unknown run kind %q", a.Kind)
 	}
-	if a.Kind != RunMain && env.Workspace != nil && env.Workspace.Source == "gradle" {
-		plan.Command = gradleTests(env.Workspace.Root, gradleModule(env.Workspace.Root, env.Path, m.ID), a)
-		return plan, nil
+	if a.Kind != RunMain && env.Workspace != nil {
+		switch env.Workspace.Source {
+		case "gradle":
+			plan.Command = gradleTests(env.Workspace.Root, gradleModule(env.Workspace.Root, env.Path, m.ID), a)
+			return plan, nil
+		case "maven":
+			plan.Command = mavenTests(env.Workspace.Root, m.Dir, a)
+			return plan, nil
+		}
+	}
+	if a.Kind == RunMain && m.Dir != "" {
+		plan.Cwd = m.Dir
 	}
 	if m.NoJDK {
 		return nil, errors.New("kcls runs JVM code only: run Android code with Gradle")
@@ -134,6 +143,9 @@ func PlanRun(a RunArgs, env RunEnv) (*RunPlan, error) {
 	if jdk != "" {
 		kc = append(kc, "-jdk-home", jdk)
 	}
+	if m.MultiPlatform {
+		kc = append(kc, "-Xmulti-platform")
+	}
 	for _, p := range m.Plugins {
 		switch p {
 		case "serialization", "parcelize", "compose", "metro":
@@ -199,6 +211,25 @@ func gradleTests(root, id string, a RunArgs) string {
 		filter += "." + a.Method
 	}
 	return shellJoin([]string{gradle, proj + ":clean" + upperFirst(task), proj + ":" + task, "--tests", filter})
+}
+
+// mavenTests returns the command that runs tests with Maven's Surefire,
+// in the module at dir and the modules it depends on, filtered to the
+// class or function.
+func mavenTests(root, dir string, a RunArgs) string {
+	mvn := "mvn"
+	if exists(filepath.Join(root, "mvnw")) {
+		mvn = "./mvnw"
+	}
+	args := []string{mvn}
+	if rel, err := filepath.Rel(root, dir); err == nil && dir != "" && rel != "." {
+		args = append(args, "-pl", filepath.ToSlash(rel), "-am")
+	}
+	filter := a.Class
+	if a.Kind == RunTest {
+		filter += "#" + a.Method
+	}
+	return shellJoin(append(args, "test", "-Dtest="+filter, "-Dsurefire.failIfNoSpecifiedTests=false", "-DfailIfNoTests=false"))
 }
 
 // gradleModule returns the Gradle module of the file at path, as

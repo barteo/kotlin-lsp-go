@@ -46,3 +46,43 @@ func TestRunLenses(t *testing.T) {
 		t.Errorf("exit code %d", code)
 	}
 }
+
+// TestNonJVMSourceSet reports that a file of a source set no JVM
+// compilation compiles is analyzed on its own.
+func TestNonJVMSourceSet(t *testing.T) {
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	writeFiles(t, root, map[string]string{
+		"kcls.json":                 `{"modules": [{"name": "jvm", "roots": ["src/jvmMain/kotlin"], "noJdk": true}]}`,
+		"src/jvmMain/kotlin/a/A.kt": "package a\n\nclass A\n",
+		"src/jsMain/kotlin/a/B.kt":  "package a\n\nclass B\n",
+	})
+	c := start(t)
+	c.initialize(protocol.ClientCapabilities{}, root)
+	for _, tc := range []struct {
+		file string
+		want bool
+	}{{"src/jsMain/kotlin/a/B.kt", true}, {"src/jvmMain/kotlin/a/A.kt", false}} {
+		path := filepath.Join(root, tc.file)
+		uri := pathURI(path)
+		c.notify("textDocument/didOpen", protocol.DidOpenTextDocumentParams{TextDocument: protocol.TextDocumentItem{URI: uri, LanguageID: "kotlin", Version: 1, Text: mustReadFile(t, path)}})
+		d := c.nextDiagnostics()
+		for d.URI != uri {
+			d = c.nextDiagnostics()
+		}
+		got := len(d.Diagnostics) > 0 && d.Diagnostics[0].Code == "NOT_COMPILED_FOR_JVM"
+		if got != tc.want {
+			t.Errorf("%s: %+v", tc.file, d.Diagnostics)
+		}
+	}
+	if code := c.shutdown(); code != 0 {
+		t.Errorf("exit code %d", code)
+	}
+}
+
+func mustReadFile(t *testing.T, path string) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(b)
+}

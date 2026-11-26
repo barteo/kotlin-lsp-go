@@ -12,6 +12,7 @@ import (
 	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
 	"github.com/barteo/kotlin-compiler-go/internal/lsp/jsonrpc"
 	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-compiler-go/psi"
 )
 
 // The commands the server executes.
@@ -55,7 +56,19 @@ func (s *Server) diagnostics(ctx context.Context, uri protocol.DocumentURI, vers
 		s.logf("analysis of %s: %v", uri, err)
 		a = nil // syntax errors still
 	}
-	return features.Diagnostics(a, f), nil
+	diags := features.Diagnostics(a, f)
+	if set := s.eng.UnsupportedSourceSet(f.Snapshot.Path()); set != "" {
+		at := f.Range(f.Snapshot.RootNode())
+		at.End = at.Start
+		if pkg := f.Snapshot.RootNode().ChildKind(psi.KindPACKAGE_DIRECTIVE); pkg.Valid() && pkg.Text() != "" {
+			at = f.Range(pkg)
+		}
+		diags = append([]protocol.Diagnostic{{
+			Range: at, Severity: protocol.SeverityInformation, Source: "kcls", Code: "NOT_COMPILED_FOR_JVM",
+			Message: "kcls analyzes the build's Kotlin/JVM compilations, and none compiles the source set " + set + ": this file is analyzed on its own, against the JDK and the standard library",
+		}}, diags...)
+	}
+	return diags, nil
 }
 
 // publishDiagnostics publishes the diagnostics of the open document at
