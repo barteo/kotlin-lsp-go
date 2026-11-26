@@ -7,8 +7,8 @@ for VS Code and for coding agents such as Claude Code. kotlin-lsp is
 IntelliJ running headless, needs JDK 25 and takes seconds to start; kcls
 is one Go binary that starts in milliseconds.
 
-It is early work: milestone M1 of seven. This page tracks what it does
-and what comes next.
+It is early work: milestones M0 to M3 of M0 to M7 are done. This page
+tracks what it does and what comes next.
 
 ## Run it
 
@@ -46,7 +46,8 @@ language server. Logs go to stderr, or to the file `-log` names.
 | Find references, implementations, rename | `references`, `implementation`, `prepareRename`, `rename` | done |
 | Call and type hierarchy | `callHierarchy/*`, `typeHierarchy/*` | done |
 | Workspace symbols, with library classes | `workspace/symbol` | done |
-| Completion, auto-import, signature help | `completion`, `signatureHelp` | M3 |
+| Completion, auto-import, overrides, live templates | `completion`, `completionItem/resolve` | done |
+| Signature help | `signatureHelp` | done |
 | Quick fixes, organize imports, inlay hints | `codeAction`, `inlayHint` | M4 |
 | Formatting, extract and inline variable, move | `formatting`, `codeAction`, `willRenameFiles` | M5 |
 | Run `main` and tests | `codeLens` | M6 |
@@ -100,6 +101,30 @@ How the server behaves:
   Kotlin's and Java's own declarations. They wait up to 2 s for the
   analysis, else they come from the syntax and the client is asked to
   refresh them when the analysis is done.
+- **Completion** lists what the code could name at the caret, as the
+  checker sees it there: locals with their smart-cast types, the
+  members and extensions of the receivers, explicit (`a.`, `a?.`) or
+  implicit (`this`, a lambda's), the top-level declarations in scope,
+  and then those an import would bring in: the program's and the
+  libraries' functions and properties, and classes, with the import as
+  an additional edit. A function inserts its parentheses, or braces when
+  it takes one lambda. In a call's arguments the parameters come first as
+  named arguments (`name = `); in a type, only classes; after `@`, only
+  annotation classes first. In a class body, a member's name (or
+  `override fun`) lists the members of the supertypes the class could
+  override, which insert a stub that calls `super` or `TODO()`. Keywords
+  and IntelliJ's live templates (`main`, `fun0`, `ifn`, `inn`, `iter`,
+  `sout`, `soutv`, …) complete too, the latter where the client takes
+  snippets. Items list nearest first: named arguments, those of the
+  expected type, locals, members, the rest in scope, keywords, imports.
+  Libraries' documentation comes with `completionItem/resolve`.
+  Completion checks the bodies of its own file only; the other files'
+  omitted types are inferred as it needs them.
+- **Signature help** lists the overloads the callee could mean, the
+  receiver's members or those in scope, and a class's constructors, with
+  the parameter of the argument at the caret, by its position or its
+  name; the overload whose parameters fit the arguments' types is the
+  active one.
 - A request that fails, even with a panic, is answered with an error, and
   the server keeps serving.
 
@@ -191,7 +216,16 @@ Still to come from kc:
   modules (each edit checks the whole module now);
 - end positions and kotlinc names for the checker's errors, as warnings
   have; kcls widens an error to the expression that starts where it does;
-- the scope at a position, for completion;
+- the type of a constructor call with wrong arguments, which is `Any`
+  for now: `val x = Foo()`, for a `Foo` that takes arguments, completes
+  `x.` with `Any`'s members;
+- which library classes are public: importable classes are all the
+  top-level classes of the class path's jars and the JDK's `src.zip`;
+- completion in imports and package directives, and of nested classes in
+  types (`Map.Entry`); override stubs name types by their simple names,
+  without importing them;
+- module source dependencies as ABI stubs, for large multi-module builds
+  (a module is analyzed with its dependencies' sources);
 - override links and declaration flags (open, val or var, deprecated)
   in the facts: kcls reads overrides and flags from the syntax, and
   library members' flags it doesn't know;
@@ -209,6 +243,8 @@ Still to come from kc:
   definitions and highlights at each `/*|*/` caret, and the semantic
   tokens of the names. `testdata/workspace/<dir>.golden` records the
   references, implementations, rename and hierarchies at each caret.
+  `testdata/completion/<dir>.golden` records the first completion items
+  and the signature help at each caret, the carets removed.
   Check a change, then
   accept it with `go test ./internal/lsp/features -update`.
 - `KCLS_GRADLE_TEST=1 go test ./internal/lsp/project -run Gradle` imports
