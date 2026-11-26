@@ -7,7 +7,9 @@ edit.
 
 ## Install
 
-Put `kcls` on `PATH`; the plugin runs it by name:
+Put `kcls` on `PATH`; the plugin runs it by name. A
+[release](https://github.com/barteo/kotlin-compiler-go/releases)'s
+archive for your platform has it, next to `kc`; or build it:
 
 ```sh
 go install github.com/barteo/kotlin-compiler-go/cmd/kcls@latest
@@ -27,7 +29,7 @@ session.
 
 ## What it answers
 
-At milestone M6 (see [docs/lsp.md](../../docs/lsp.md)), kcls reports
+kcls (see [docs/lsp.md](../../docs/lsp.md)) reports
 type errors and warnings, and answers every request of the LSP tool:
 hover, go to definition (into library sources too), find references,
 document and workspace symbols, go to implementation, and incoming and

@@ -7,8 +7,8 @@ for VS Code and for coding agents such as Claude Code. kotlin-lsp is
 IntelliJ running headless, needs JDK 25 and takes seconds to start; kcls
 is one Go binary that starts in milliseconds.
 
-It is early work: milestones M0 to M6 of M0 to M7 are done. This page
-tracks what it does and what comes next.
+Its roadmap's milestones, M0 to M7, are done; it is still young. This
+page tracks what it does, how fast, and what comes next.
 
 ## Run it
 
@@ -20,6 +20,12 @@ bin/kcls -listen :9999   # LSP on TCP, as kotlin-lsp's default port
 
 `kc -lsp` runs the same server, so a release's `kc` binary is also the
 language server. Logs go to stderr, or to the file `-log` names.
+
+Each [release](https://github.com/barteo/kotlin-compiler-go/releases)
+has, for Linux and macOS on amd64 and arm64, an archive with `kc` and
+`kcls`, and the VS Code extension with both in it
+(`kcls-darwin-arm64-<release>.vsix`); a release that isn't a
+prerelease also goes to the VS Code Marketplace and Open VSX.
 
 - **VS Code:** [editors/vscode](../editors/vscode/README.md).
 - **Claude Code:** [editors/claude-code](../editors/claude-code/README.md),
@@ -54,7 +60,8 @@ language server. Logs go to stderr, or to the file `-log` names.
 | Extract and inline variable | `codeAction` | done |
 | Moving files and packages | `workspace/willRenameFiles` | done |
 | Run `main` and tests | `codeLens`, `kcls.prepareRun` | done |
-| Maven, multiplatform polish, release packaging | | M7 |
+| Maven projects, multiplatform modules, multi-root workspaces | | done |
+| Releases: binaries, VS Code extensions, Claude Code plugin | | done |
 
 How the server behaves:
 
@@ -221,7 +228,9 @@ How the server behaves:
   the open files first).
   - Tests of a Gradle build run with the module's test task, filtered:
     `./gradlew :app:cleanTest :app:test --tests 'a.FooTest.bar'`; the
-    clean task makes Gradle run them again when nothing changed.
+    clean task makes Gradle run them again when nothing changed. Tests
+    of a Maven build run with Surefire, in the module and the modules it
+    depends on: `mvn -pl app -am test -Dtest='a.FooTest#bar'`.
   - A `main` function, and tests outside Gradle, compile with kc into
     kcls's cache: the module's Kotlin sources together with those of the
     modules it depends on, its Java sources with the JDK's `javac`,
@@ -254,8 +263,10 @@ kcls finds a workspace folder's modules in the first of:
 
    Paths are relative to the file. A module also takes `files`,
    `moduleName`, `friendPaths`, `jdkHome`, `noJdk`, `explicitApi`
-   (`warning` or `strict`), `optIns`, and `stdlib: false` to leave out
-   the Kotlin standard library kc adds by default.
+   (`warning` or `strict`), `optIns`, `multiPlatform`, `output` (where
+   its classes are built, which another workspace folder's class path
+   may have), and `stdlib: false` to leave out the Kotlin standard
+   library kc adds by default.
 2. **A Gradle build** (`settings.gradle(.kts)` or `build.gradle(.kts)`).
    kcls runs the build's `gradlew`, or `gradle` on `PATH`, with the init
    script [kcls-model.init.gradle.kts](../internal/lsp/project/kcls-model.init.gradle.kts).
@@ -270,8 +281,37 @@ kcls finds a workspace folder's modules in the first of:
    model is cached, keyed by a hash of the build files, so the next start
    uses it at once. Editing a build file, `gradle.properties` or
    `libs.versions.toml` imports again.
-3. **Otherwise**, every `.kt` file under the folder is one module,
+
+   A multiplatform module's JVM compilation (`compileKotlinJvm`) is a
+   module of its common and JVM sources, compiled as kotlinc's
+   `-Xmulti-platform` does. Kotlin/JS, Native and Wasm compilations
+   aren't modules: a file of a source set only they compile, such as
+   `jsMain` or `iosMain`, is analyzed on its own, against the JDK and
+   the standard library, and an information diagnostic,
+   `NOT_COMPILED_FOR_JVM`, says so.
+3. **A Maven build** (`pom.xml`). kcls runs the build's `mvnw`, or `mvn`
+   on `PATH`, twice over, compiling nothing: `help:effective-pom` gives
+   each module's source and output directories (the
+   `kotlin-maven-plugin`'s `sourceDirs`, `src/main/kotlin`, the source
+   directory, and `build-helper-maven-plugin`'s sources), its Kotlin
+   settings (`jvmTarget`, `-Xexplicit-api`, `-opt-in`, compiler plugins)
+   and its dependencies on the reactor's other modules, and
+   `dependency:build-classpath` its class paths, compile scope for main
+   and test scope for test. A module of the reactor uses another's
+   sources, not its jar. A module whose dependencies Maven can't resolve,
+   as one on a module of the reactor that was never installed, gets its
+   direct dependencies from the local repository. The model is cached
+   and imported again as Gradle's is.
+4. **Otherwise**, every `.kt` file under the folder is one module,
    compiled against the JDK and the standard library kc finds.
+
+**Multi-root workspaces.** Each workspace folder has its own model. A
+module whose class path has the classes of another folder's module (its
+output directory, or a jar in its `build/libs` or `target`), as with a
+Gradle composite build or two projects opened side by side, is analyzed
+with that module's sources: definitions go to them, and references and
+renames reach across folders. Adding or removing a folder, or importing
+one again, relinks them.
 
 A file outside every module is analyzed on its own. On macOS, when
 `JAVA_HOME` isn't set, as for an editor started from the Dock, the JDK is
@@ -295,6 +335,40 @@ palette):
 
 kcls's cache is in the user cache directory (`~/Library/Caches/kcls`,
 `~/.cache/kcls`), or in `$KCLS_CACHE`.
+
+## Performance
+
+[bench/lsp](../bench/lsp/main.go) drives a `kcls` process over stdio as
+an editor does, on a module of 200 files [bench/gen](../bench/gen/main.go)
+writes, or on any workspace (`-root`): the start to the first diagnostics
+of the opened file, a body edit to its diagnostics, completion after
+each member access's dot, go to definition, and the server's resident
+memory, over a soak with `-soak`. `-check` fails a run that is over its
+budgets.
+
+```sh
+go run ./bench/lsp -soak 10m -check
+```
+
+On the generated module (201 Kotlin files, File100.kt opened, 403 lines), darwin/arm64, 8 CPUs:
+
+| measurement | median | result | budget |
+|---|---|---|---|
+| start to first diagnostics | — | 1.32 s | 3.00 s |
+| body edit to diagnostics, p95 of 20 | 1.08 s | 1.17 s | 2.00 s |
+| completion, p95 of 30 | 521 ms | 556 ms | 1.00 s |
+| definition, p95 of 30 | 0 ms | 3 ms | 300 ms |
+| resident memory | — | 1823 MB | 2560 MB |
+| memory growth over a 10m0s soak (32 rounds) | 1823 → 1863 MB, peak 1870 MB | +2% | +25% |
+
+The budgets catch regressions, at what kcls does now with room to spare;
+the goals are lower. Each edit checks the whole module, so an edit's
+diagnostics take as long as checking all of it (1.1 s here); a session
+that checks only the edited bodies would bring that to tens of
+milliseconds. Completion checks the file with the module's signatures
+again. The memory is the Go heap with the garbage collector's room: the
+live heap after each collection stays at 500 to 750 MB over a soak, with
+two analyses of the module alive while one replaces the other.
 
 ## Design
 
@@ -358,7 +432,10 @@ Still to come from kc:
   which needs a debug adapter (not a goal of kcls); a run doesn't wait
   for a Gradle import that has yet to see a new module, so a test file
   in a new source set runs with the task its directories name
-  (`src/test` → `test`, `src/jvmTest` → `jvmTest`).
+  (`src/test` → `test`, `src/jvmTest` → `jvmTest`);
+- Kotlin/JS, Native and Wasm, which kc doesn't compile;
+- a Maven local repository other than `~/.m2/repository`, from
+  `settings.xml`, for the class path of a module Maven couldn't resolve.
 
 ## Tests
 
@@ -389,6 +466,13 @@ Still to come from kc:
 - `TestRunMain` (`internal/lsp/features`) builds kc, plans a run lens of
   a module with Kotlin, Java and resources, and runs it with the JDK;
   `-short` skips it.
+- `TestMavenModel` (`internal/lsp/project`) reads a reactor's effective
+  POM and the dependency plugin's log, written in Maven's formats, into
+  modules. `TestRoots` (`internal/lsp/engine`) links two workspace
+  folders.
+- `KCLS_MAVEN_TEST=1 go test ./internal/lsp/project -run ImportMaven`
+  imports a two-module Maven build. It needs Maven (`KCLS_MAVEN` names
+  the binary) and the help and dependency plugins, cached or online.
 - `KCLS_GRADLE_TEST=1 go test ./internal/lsp/project -run Gradle` imports
   a two-project Gradle build. It needs Gradle (`KCLS_GRADLE` names the
   binary) and the Kotlin Gradle plugin, cached or online.

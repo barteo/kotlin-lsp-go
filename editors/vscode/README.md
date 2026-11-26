@@ -4,7 +4,7 @@ Kotlin language support from `kcls`, the Kotlin language server built on
 [kc](https://github.com/barteo/kotlin-compiler-go). It starts in
 milliseconds and needs no JVM.
 
-What it does so far (milestone M6 of [docs/lsp.md](../../docs/lsp.md)):
+What it does (see [docs/lsp.md](../../docs/lsp.md)):
 
 - Type errors and warnings as you type, from kc's checker
 - Code completion: locals, members, extensions, auto-import, named
@@ -19,26 +19,40 @@ What it does so far (milestone M6 of [docs/lsp.md](../../docs/lsp.md)):
   conventions and `.editorconfig`; extract and inline variable; moving
   files and folders updates packages and imports
 - ▶ Run above `main` functions, and ▶ Run test(s) above JUnit, TestNG
-  and kotlin.test tests, in a terminal: tests with the Gradle build's
-  test task, `main` compiled with kc and run with `java`
+  and kotlin.test tests, in a terminal: tests with the Gradle or Maven
+  build's test task, `main` compiled with kc and run with `java`
 - Hover with the signature and KDoc
 - Go to definition and type definition, into library sources too
 - Highlights of a symbol's occurrences
 - Find references, rename (overrides included), go to implementation
 - Call hierarchy and type hierarchy
 - Go to symbol in workspace, over the sources and library classes
-- Gradle projects, imported in the background, or a `kcls.json`
+- Gradle and Maven projects, imported in the background, or a
+  `kcls.json`; multiplatform modules' JVM sources; multi-root workspaces,
+  linked where one folder's build uses another's
 - Outline and breadcrumbs, with each function's signature
 - Folding, expand and shrink selection
 - Semantic highlighting from resolution (methods, read-only properties,
   parameters, deprecated uses), and a TextMate grammar
 - Bracket, quote and KDoc comment completion
 
+## Install
+
+From the VS Code Marketplace or Open VSX (*Kotlin (kcls)*), or from a
+[release](https://github.com/barteo/kotlin-compiler-go/releases): each
+has the extension for Linux and macOS, amd64 and arm64, with `kcls` and
+`kc` in it.
+
+```sh
+code --install-extension kcls-darwin-arm64-<release>.vsix
+```
+
 ## Install from source
 
 ```sh
 cd editors/vscode
 npm install
+mkdir -p server
 go build -o server/kcls ../../cmd/kcls
 go build -o server/kc ../../cmd/kc
 npx vsce package
