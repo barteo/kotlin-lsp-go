@@ -34,3 +34,16 @@ reference and start is timed to the diagnostics that report it; each edit
 adds a new unresolved reference and is timed to the diagnostics naming it.
 kotlin-lsp's diagnostics include IntelliJ's inspections (the 18 warnings).
 The three runs of each cell were within 10% of each other.
+
+**Why kcls resolved 5 definitions.** kcls goes to a library declaration
+only in that library's sources (a sources jar next to the jar, or the
+JDK's `src.zip`), and this machine had none: `KOTLIN_HOME/lib` held only
+`kotlin-stdlib.jar`, and the JDK's `lib/src.zip` was a dangling link
+(Ubuntu's `openjdk-21-source` not installed). So every stdlib and JDK
+member returned null. kc-lsp generates stub sources from the class files
+instead, and kotlin-lsp reads the classes. With
+`kotlin-stdlib-sources.jar` next to the stdlib and `src.zip` installed,
+kcls resolves 22 of 30, as kc-lsp does (`COMPARE_SHOW_DEFS=1` prints each
+site's result). Of the other 8, kotlin-lsp resolves the 6 names in import
+directives (`import p1.helper101`), which kcls and kc-lsp don't; none of
+the three resolves a package segment (`java.util` in `java.util.Random`).

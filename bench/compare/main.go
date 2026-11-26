@@ -295,6 +295,10 @@ func run() error {
 				return fmt.Errorf("hover: %w", err)
 			}
 			dh := time.Since(t0)
+			if record && os.Getenv("COMPARE_SHOW_DEFS") != "" {
+				line := strings.SplitN(text[strings.LastIndexByte(text[:off], '\n')+1:], "\n", 2)[0]
+				fmt.Fprintf(os.Stderr, "def %d:%d %q -> %.200s\n", p.Line, p.Character+1, strings.TrimSpace(line), def)
+			}
 			if record {
 				compTimes, defTimes, hoverTimes = append(compTimes, dc), append(defTimes, dd), append(hoverTimes, dh)
 				compItems += countItems(comp)
