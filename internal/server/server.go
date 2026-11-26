@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/barteo/kotlin-compiler-go/internal/lsp/engine"
 	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
 	"github.com/barteo/kotlin-compiler-go/internal/lsp/jsonrpc"
 	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
@@ -27,6 +28,11 @@ type Options struct {
 	// DiagnosticsDelay is how long after an edit diagnostics are
 	// published; 0 means 50 ms.
 	DiagnosticsDelay time.Duration
+	// CacheDir holds Gradle models and extracted library sources; empty
+	// for the user's cache directory.
+	CacheDir string
+	// NoImport never runs Gradle.
+	NoImport bool
 }
 
 // state is a server's place in the lifecycle.
@@ -43,6 +49,12 @@ type Server struct {
 	opts Options
 	logf func(string, ...any)
 	conn *jsonrpc.Conn
+	ctx  context.Context // cancelled when Serve returns
+	eng  *engine.Engine
+	// ready is closed on the initialized notification, after which the
+	// server may send the client requests.
+	ready     chan struct{}
+	readyOnce sync.Once
 
 	mu       sync.Mutex
 	state    state
@@ -55,6 +67,10 @@ type Server struct {
 	hierarchicalSymbols bool
 	pullDiagnostics     bool
 	watchFiles          bool
+	linkSupport         bool // definition
+	typeLinkSupport     bool // typeDefinition
+	refreshDiagnostics  bool
+	workDoneProgress    bool
 
 	docs *docStore
 
@@ -66,7 +82,7 @@ type Server struct {
 // stream ends. It returns the exit code the process should exit with: 0
 // after shutdown and exit, 1 otherwise, as the protocol says.
 func Serve(ctx context.Context, r io.Reader, w io.Writer, opts Options) int {
-	s := &Server{opts: opts, logf: opts.Logf, exit: make(chan struct{}), pending: map[protocol.DocumentURI]*time.Timer{}}
+	s := &Server{opts: opts, logf: opts.Logf, exit: make(chan struct{}), ready: make(chan struct{}), pending: map[protocol.DocumentURI]*time.Timer{}}
 	if s.logf == nil {
 		s.logf = func(string, ...any) {}
 	}
@@ -75,6 +91,7 @@ func Serve(ctx context.Context, r io.Reader, w io.Writer, opts Options) int {
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	s.ctx = ctx
 	s.conn = jsonrpc.NewConn(r, w, s.handle, s.logf)
 	done := make(chan error, 1)
 	go func() { done <- s.conn.Run(ctx) }()
@@ -88,6 +105,9 @@ func Serve(ctx context.Context, r io.Reader, w io.Writer, opts Options) int {
 	s.stopPending()
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.eng != nil {
+		s.eng.Close()
+	}
 	if s.state == shutDown {
 		return 0
 	}
@@ -128,6 +148,7 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 
 	switch req.Method {
 	case "initialized":
+		s.readyOnce.Do(func() { close(s.ready) })
 		s.initialized(ctx)
 		return nil, nil
 	case "shutdown":
@@ -177,10 +198,46 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 		}
 		for _, c := range p.Changes {
 			s.docs.invalidate(c.URI)
+			if path, err := uriPath(c.URI); err == nil {
+				s.eng.Changed(path, c.Type == protocol.FileCreated, c.Type == protocol.FileDeleted)
+			}
+		}
+		if len(p.Changes) > 0 {
+			s.refreshAll()
 		}
 		return nil, nil
-	case "workspace/didChangeConfiguration", "workspace/didChangeWorkspaceFolders", "$/setTrace":
+	case "workspace/didChangeWorkspaceFolders":
+		var p protocol.DidChangeWorkspaceFoldersParams
+		if err := decode(req, &p); err != nil {
+			return nil, err
+		}
+		for _, f := range p.Event.Removed {
+			if path, err := uriPath(f.URI); err == nil {
+				s.eng.RemoveRoot(path)
+			}
+		}
+		for _, f := range p.Event.Added {
+			if path, err := uriPath(f.URI); err == nil {
+				s.eng.AddRoot(path)
+			}
+		}
+		s.refreshAll()
 		return nil, nil
+	case "workspace/didChangeConfiguration", "$/setTrace":
+		return nil, nil
+	case "workspace/executeCommand":
+		var p protocol.ExecuteCommandParams
+		if err := decode(req, &p); err != nil {
+			return nil, err
+		}
+		return s.executeCommand(p)
+
+	case "textDocument/hover", "textDocument/definition", "textDocument/typeDefinition", "textDocument/documentHighlight":
+		var p protocol.TextDocumentPositionParams
+		if err := decode(req, &p); err != nil {
+			return nil, err
+		}
+		return s.semantic(ctx, req.Method, p)
 
 	case "textDocument/documentSymbol":
 		var p protocol.DocumentSymbolParams
@@ -249,11 +306,11 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 		if err := decode(req, &p); err != nil {
 			return nil, err
 		}
-		f, err := s.file(p.TextDocument.URI)
+		items, err := s.diagnostics(ctx, p.TextDocument.URI, nil)
 		if err != nil {
 			return nil, err
 		}
-		return protocol.DocumentDiagnosticReport{Kind: "full", Items: features.SyntaxDiagnostics(f)}, nil
+		return protocol.DocumentDiagnosticReport{Kind: "full", Items: items}, nil
 	}
 	if req.IsNotification() {
 		return nil, nil
@@ -294,10 +351,14 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 	if td := caps.TextDocument; td != nil {
 		s.hierarchicalSymbols = td.DocumentSymbol != nil && td.DocumentSymbol.HierarchicalDocumentSymbolSupport
 		s.pullDiagnostics = td.Diagnostic != nil
+		s.linkSupport = td.Definition != nil && td.Definition.LinkSupport
+		s.typeLinkSupport = td.TypeDefinition != nil && td.TypeDefinition.LinkSupport
 	}
 	if ws := caps.Workspace; ws != nil {
 		s.watchFiles = ws.DidChangeWatchedFiles != nil && ws.DidChangeWatchedFiles.DynamicRegistration
+		s.refreshDiagnostics = ws.Diagnostics != nil && ws.Diagnostics.RefreshSupport
 	}
+	s.workDoneProgress = caps.Window != nil && caps.Window.WorkDoneProgress
 	for _, f := range p.WorkspaceFolders {
 		if path, err := uriPath(f.URI); err == nil {
 			s.roots = append(s.roots, path)
@@ -314,6 +375,17 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 	}
 	s.logf("initialize: %s, encoding %s, roots %v, pull diagnostics %v", client, enc, s.roots, s.pullDiagnostics)
 	s.state = running
+	s.eng = engine.New(engine.Options{
+		Files:    s.docs,
+		Logf:     s.logf,
+		CacheDir: s.opts.CacheDir,
+		NoImport: s.opts.NoImport,
+		Progress: s.progress,
+		OnModel:  s.modelChanged,
+	})
+	for _, r := range s.roots {
+		s.eng.AddRoot(r)
+	}
 
 	res := &protocol.InitializeResult{
 		ServerInfo: &protocol.ServerInfo{Name: "kcls", Version: s.opts.Version},
@@ -332,13 +404,18 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 				Full:   true,
 				Range:  true,
 			},
+			HoverProvider:             true,
+			DefinitionProvider:        true,
+			TypeDefinitionProvider:    true,
+			DocumentHighlightProvider: true,
+			ExecuteCommandProvider:    &protocol.ExecuteCommandOptions{Commands: commands},
 			Workspace: &protocol.WorkspaceOptions{
-				WorkspaceFolders: &protocol.WorkspaceFoldersServerCapabilities{Supported: true},
+				WorkspaceFolders: &protocol.WorkspaceFoldersServerCapabilities{Supported: true, ChangeNotifications: true},
 			},
 		},
 	}
 	if s.pullDiagnostics {
-		res.Capabilities.DiagnosticProvider = &protocol.DiagnosticOptions{Identifier: "kcls"}
+		res.Capabilities.DiagnosticProvider = &protocol.DiagnosticOptions{Identifier: "kcls", InterFileDependencies: true}
 	}
 	return res
 }
@@ -353,7 +430,10 @@ func (s *Server) initialized(ctx context.Context) {
 			ID:     "kcls-watch",
 			Method: "workspace/didChangeWatchedFiles",
 			RegisterOptions: protocol.DidChangeWatchedFilesRegistrationOptions{
-				Watchers: []protocol.FileSystemWatcher{{GlobPattern: "**/*.{kt,kts}"}},
+				Watchers: []protocol.FileSystemWatcher{
+					{GlobPattern: "**/*.{kt,kts,java}"},
+					{GlobPattern: "**/{build.gradle,build.gradle.kts,settings.gradle,settings.gradle.kts,gradle.properties,libs.versions.toml,gradle-wrapper.properties,kcls.json}"},
+				},
 			},
 		}}}
 		if err := s.conn.Call(ctx, "client/registerCapability", params, nil); err != nil && !errors.Is(err, context.Canceled) {
@@ -378,15 +458,7 @@ func (s *Server) schedule(uri protocol.DocumentURI) {
 		s.pubMu.Lock()
 		delete(s.pending, key)
 		s.pubMu.Unlock()
-		if !s.docs.isOpen(uri) {
-			return
-		}
-		f, version, err := s.docs.file(uri)
-		if err != nil {
-			s.logf("diagnostics of %s: %v", uri, err)
-			return
-		}
-		s.publish(uri, &version, features.SyntaxDiagnostics(f))
+		s.publishDiagnostics(uri)
 	})
 }
 

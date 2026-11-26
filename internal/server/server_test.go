@@ -25,6 +25,7 @@ type client struct {
 
 	mu         sync.Mutex
 	registered []string
+	refreshes  int
 }
 
 func start(t *testing.T) *client {
@@ -33,7 +34,7 @@ func start(t *testing.T) *client {
 	cr, sw := io.Pipe()
 	c := &client{t: t, code: make(chan int, 1), diags: make(chan protocol.PublishDiagnosticsParams, 16)}
 	go func() {
-		c.code <- Serve(context.Background(), sr, sw, Options{Version: "test", Logf: t.Logf, DiagnosticsDelay: time.Millisecond})
+		c.code <- Serve(context.Background(), sr, sw, Options{Version: "test", Logf: t.Logf, DiagnosticsDelay: time.Millisecond, CacheDir: t.TempDir(), NoImport: true})
 		sw.Close()
 	}()
 	c.conn = jsonrpc.NewConn(cr, cw, func(ctx context.Context, _ *jsonrpc.Conn, req *jsonrpc.Request) (any, error) {
@@ -42,6 +43,10 @@ func start(t *testing.T) *client {
 			var p protocol.PublishDiagnosticsParams
 			json.Unmarshal(req.Params, &p)
 			c.diags <- p
+		case "workspace/diagnostic/refresh":
+			c.mu.Lock()
+			c.refreshes++
+			c.mu.Unlock()
 		case "client/registerCapability":
 			var p protocol.RegistrationParams
 			json.Unmarshal(req.Params, &p)

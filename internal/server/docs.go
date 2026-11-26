@@ -126,6 +126,26 @@ func (s *docStore) file(uri protocol.DocumentURI) (*features.File, int32, error)
 	return d.parsed, d.version, nil
 }
 
+// File returns the parsed file at path, for the engine: the client's
+// text if it opened the file, else the file on disk.
+func (s *docStore) File(path string) (*features.File, error) {
+	f, _, err := s.file(pathURI(path))
+	return f, err
+}
+
+// openDocs returns the URIs of the documents the client opened.
+func (s *docStore) openDocs() []protocol.DocumentURI {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var out []protocol.DocumentURI
+	for _, d := range s.docs {
+		if d.open {
+			out = append(out, d.uri)
+		}
+	}
+	return out
+}
+
 // load reads the file of uri from disk, unless old is up to date; key
 // is uri's canonical form.
 func (s *docStore) load(uri, key protocol.DocumentURI, old *document) (*document, error) {

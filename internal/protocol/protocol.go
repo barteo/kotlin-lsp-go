@@ -316,7 +316,7 @@ type DocumentDiagnosticParams struct {
 type DocumentDiagnosticReport struct {
 	Kind     string       `json:"kind"`
 	ResultID string       `json:"resultId,omitempty"`
-	Items    []Diagnostic `json:"items,omitempty"`
+	Items    []Diagnostic `json:"items"`
 }
 
 // ---- symbols ----
@@ -525,4 +525,13 @@ type WorkDoneProgressBegin struct {
 type WorkDoneProgressEnd struct {
 	Kind    string `json:"kind"` // "end"
 	Message string `json:"message,omitempty"`
+}
+
+type WorkspaceFoldersChangeEvent struct {
+	Added   []WorkspaceFolder `json:"added"`
+	Removed []WorkspaceFolder `json:"removed"`
+}
+
+type DidChangeWorkspaceFoldersParams struct {
+	Event WorkspaceFoldersChangeEvent `json:"event"`
 }
