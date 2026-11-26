@@ -351,6 +351,22 @@ func (m *module) run(ctx context.Context, files []*features.File, own []string, 
 	for _, f := range kt {
 		snaps = append(snaps, f.Snapshot)
 	}
+	if incremental {
+		// The modules it depends on are checked by their own analyses:
+		// this one only declares their sources.
+		mine := make(map[string]bool, len(own))
+		for _, p := range own {
+			mine[p] = true
+		}
+		for _, f := range kt {
+			if p := f.Snapshot.Path(); !mine[p] {
+				if opts.Declared == nil {
+					opts.Declared = map[string]bool{}
+				}
+				opts.Declared[p] = true
+			}
+		}
+	}
 	start := time.Now()
 	var res *analysis.Result
 	how := ""
