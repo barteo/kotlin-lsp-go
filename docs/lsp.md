@@ -392,18 +392,28 @@ The server depends on nothing but kc's module (its `psi` and `analysis`
 packages) and the standard library. The protocol types are written by hand for the methods kcls
 serves.
 
-Semantic features analyze a module with `analysis.Library`, which keeps
-the module's class path open between analyses. It checks a file with
-syntax errors as far as lowering recovers it. It reports the checker's
-warnings, and a panic in the checker is an error, not a crash. A module
-is analyzed together with the sources of the modules it depends on, so
-that their declarations resolve to source whether or not the build
-compiled them. Only the module's own files' diagnostics are reported.
+Semantic features analyze a module with an `analysis.Session` of an
+`analysis.Library`, which keeps the module's class path open between
+analyses. It checks a file with syntax errors as far as lowering
+recovers it. It reports the checker's warnings, and a panic in the
+checker is an error, not a crash. A module is analyzed together with
+the sources of the modules it depends on, so that their declarations
+resolve to source whether or not the build compiled them; those files
+are only declared (`Options.Declared`), not checked, and only the
+module's own files have diagnostics and facts.
+
+An update after an edit is incremental: the session checks the edited
+files and those that use a declaration whose signature changed (a body
+edit checks only its file), keeps the other files' diagnostics and
+facts, and reads the files it doesn't check without their block bodies.
+An edit that changes declarations most files use, or the Java sources,
+checks the module whole. Completion checks the completion's file only,
+against the other files' signatures, and doesn't change what the next
+update starts from. `KCLS_INCREMENTAL=0` checks every update whole, as
+a fallback.
 
 Still to come from kc:
 
-- a session that checks only the edited files' bodies, for large
-  modules (each edit checks the whole module now);
 - end positions and kotlinc names for the checker's errors, as warnings
   have; kcls widens an error to the expression that starts where it does;
 - the type of a constructor call with wrong arguments, which is `Any`
