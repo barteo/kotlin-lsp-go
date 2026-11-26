@@ -70,6 +70,7 @@ type Server struct {
 	linkSupport         bool // definition
 	typeLinkSupport     bool // typeDefinition
 	refreshDiagnostics  bool
+	refreshTokens       bool
 	workDoneProgress    bool
 
 	docs *docStore
@@ -239,6 +240,12 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 		}
 		return s.semantic(ctx, req.Method, p)
 
+	case "textDocument/references", "textDocument/implementation", "textDocument/prepareRename", "textDocument/rename",
+		"textDocument/prepareCallHierarchy", "textDocument/prepareTypeHierarchy",
+		"callHierarchy/incomingCalls", "callHierarchy/outgoingCalls", "typeHierarchy/supertypes", "typeHierarchy/subtypes",
+		"workspace/symbol":
+		return s.workspace(ctx, req)
+
 	case "textDocument/documentSymbol":
 		var p protocol.DocumentSymbolParams
 		if err := decode(req, &p); err != nil {
@@ -286,7 +293,7 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 		if err != nil {
 			return nil, err
 		}
-		return features.SemanticTokens(f, nil)
+		return features.SemanticTokensOf(s.tokensAnalysis(ctx, f), f, nil)
 	case "textDocument/semanticTokens/range":
 		var p protocol.SemanticTokensRangeParams
 		if err := decode(req, &p); err != nil {
@@ -296,7 +303,7 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 		if err != nil {
 			return nil, err
 		}
-		toks, err := features.SemanticTokens(f, &p.Range)
+		toks, err := features.SemanticTokensOf(s.tokensAnalysis(ctx, f), f, &p.Range)
 		if err != nil {
 			return nil, jsonrpc.Errorf(jsonrpc.CodeInvalidParams, "%v", err)
 		}
@@ -357,6 +364,7 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 	if ws := caps.Workspace; ws != nil {
 		s.watchFiles = ws.DidChangeWatchedFiles != nil && ws.DidChangeWatchedFiles.DynamicRegistration
 		s.refreshDiagnostics = ws.Diagnostics != nil && ws.Diagnostics.RefreshSupport
+		s.refreshTokens = ws.SemanticTokens != nil && ws.SemanticTokens.RefreshSupport
 	}
 	s.workDoneProgress = caps.Window != nil && caps.Window.WorkDoneProgress
 	for _, f := range p.WorkspaceFolders {
@@ -408,6 +416,12 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 			DefinitionProvider:        true,
 			TypeDefinitionProvider:    true,
 			DocumentHighlightProvider: true,
+			ReferencesProvider:        true,
+			ImplementationProvider:    true,
+			RenameProvider:            &protocol.RenameOptions{PrepareProvider: true},
+			CallHierarchyProvider:     true,
+			TypeHierarchyProvider:     true,
+			WorkspaceSymbolProvider:   true,
 			ExecuteCommandProvider:    &protocol.ExecuteCommandOptions{Commands: commands},
 			Workspace: &protocol.WorkspaceOptions{
 				WorkspaceFolders: &protocol.WorkspaceFoldersServerCapabilities{Supported: true, ChangeNotifications: true},

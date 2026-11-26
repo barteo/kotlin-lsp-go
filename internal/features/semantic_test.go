@@ -115,6 +115,12 @@ func dumpSemantic(t *testing.T, a *Analysis, files []*File) string {
 			sev := [...]string{"", "error", "warning", "info", "hint"}[d.Severity]
 			fmt.Fprintf(&b, "%s-%s %s %s [%s]: %s\n", pos(d.Range.Start), pos(d.Range.End), sev, d.Code, text(f, d.Range), d.Message)
 		}
+		b.WriteString("== names\n")
+		toks, err := SemanticTokensOf(a, f, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b.WriteString(dumpNames(f, toks.Data))
 		for off := 0; ; {
 			i := strings.Index(src[off:], caret)
 			if i < 0 {
@@ -147,6 +153,47 @@ func dumpSemantic(t *testing.T, a *Analysis, files []*File) string {
 				fmt.Fprintf(&b, "highlights: %s\n", strings.Join(hs, " "))
 			}
 		}
+	}
+	return b.String()
+}
+
+// dumpNames lists the tokens of names in semantic tokens data, with
+// their types and modifiers, on a line per source line.
+func dumpNames(f *File, data []uint32) string {
+	var b strings.Builder
+	var line, char uint32
+	lines := strings.Split(f.Mapper.Text(), "\n")
+	cur := -1
+	for i := 0; i+4 < len(data); i += 5 {
+		if data[i] != 0 {
+			char = 0
+		}
+		line += data[i]
+		char += data[i+1]
+		typ := TokenTypes[data[i+3]]
+		switch typ {
+		case "keyword", "comment", "string", "number", "operator":
+			continue
+		}
+		text := []rune(lines[line])
+		end := min(int(char+data[i+2]), len(text)) // UTF-16 and runes agree in the tests
+		desc := typ
+		for j, m := range TokenModifiers {
+			if data[i+4]&(1<<j) != 0 {
+				desc += "." + m
+			}
+		}
+		if int(line) != cur {
+			if cur >= 0 {
+				b.WriteString("\n")
+			}
+			fmt.Fprintf(&b, "%d:", line+1)
+			cur = int(line)
+		}
+		fmt.Fprintf(&b, " %s=%s", string(text[char:end]), desc)
+	}
+	if cur >= 0 {
+		b.WriteString("\n")
 	}
 	return b.String()
 }

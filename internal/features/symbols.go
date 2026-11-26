@@ -27,7 +27,7 @@ func (f *File) symbols(parent psi.NodeRef, inClass bool) []protocol.DocumentSymb
 }
 
 func (f *File) symbol(n psi.NodeRef, inClass bool) (protocol.DocumentSymbol, bool) {
-	s := protocol.DocumentSymbol{Range: f.Range(n)}
+	s := protocol.DocumentSymbol{Range: f.declRange(n)}
 	sel := n.NameIdentifier()
 	s.Name = n.Name()
 	switch n.NumericKind() {
@@ -114,7 +114,7 @@ func (f *File) property(n psi.NodeRef) (protocol.DocumentSymbol, bool) {
 	s := protocol.DocumentSymbol{
 		Name:           receiverPrefix(n) + n.Name(),
 		Kind:           protocol.SymbolProperty,
-		Range:          f.Range(n),
+		Range:          f.declRange(n),
 		SelectionRange: f.Range(sel),
 	}
 	if t := n.TypeReference(); t.Valid() {
@@ -164,4 +164,20 @@ func FlatSymbols(f *File, syms []protocol.DocumentSymbol) []protocol.SymbolInfor
 	}
 	walk(syms, "")
 	return out
+}
+
+// declRange returns the range of a declaration less its leading KDoc
+// and comments, so that it starts on the line of its modifiers or
+// keyword, where readers, coding agents among them, look for it.
+func (f *File) declRange(n psi.NodeRef) protocol.Range {
+	start := n.Range().Start
+	for c := n.FirstChild(); c.Valid(); c = c.NextSibling() {
+		switch c.NumericKind() {
+		case psi.KindKDOC, psi.KindWHITE_SPACE, psi.KindEOL_COMMENT, psi.KindBLOCK_COMMENT:
+			continue
+		}
+		start = c.Range().Start
+		break
+	}
+	return f.Mapper.Range(start, n.Range().End)
 }

@@ -133,6 +133,17 @@ func (s *docStore) File(path string) (*features.File, error) {
 	return f, err
 }
 
+// OpenText returns the text of the document at path if the client
+// opened it, for the engine's searches.
+func (s *docStore) OpenText(path string) (string, bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if d := s.docs[pathURI(path)]; d != nil && d.open {
+		return d.text, true
+	}
+	return "", false
+}
+
 // openDocs returns the URIs of the documents the client opened.
 func (s *docStore) openDocs() []protocol.DocumentURI {
 	s.mu.Lock()

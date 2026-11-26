@@ -51,3 +51,7 @@ val raw = """
     multi
     line
 """
+
+/** Documented. */
+@Suppress("unused")
+fun documented() = 1

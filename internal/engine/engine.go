@@ -58,15 +58,19 @@ type Options struct {
 
 // Engine analyzes the modules of workspaces.
 type Engine struct {
-	opts Options
-	logf func(string, ...any)
-	ctx  context.Context // cancelled by Close
-	stop context.CancelFunc
-	libs *librarySources
+	opts    Options
+	logf    func(string, ...any)
+	ctx     context.Context // cancelled by Close
+	stop    context.CancelFunc
+	libs    *librarySources
+	symbols *symbolIndex
 
 	mu      sync.Mutex
 	roots   []*root
 	singles map[string]*module // single-file modules, by path
+
+	textMu sync.Mutex
+	texts  map[string]cachedText // files' texts for searches
 }
 
 // root is a workspace folder.
@@ -94,7 +98,7 @@ func New(opts Options) *Engine {
 		opts.SourcesTTL = 2 * time.Second
 	}
 	ctx, stop := context.WithCancel(context.Background())
-	e := &Engine{opts: opts, logf: opts.Logf, ctx: ctx, stop: stop, singles: map[string]*module{}}
+	e := &Engine{opts: opts, logf: opts.Logf, ctx: ctx, stop: stop, singles: map[string]*module{}, texts: map[string]cachedText{}, symbols: newSymbolIndex()}
 	e.libs = newLibrarySources(filepath.Join(opts.CacheDir, "sources"), opts.Logf)
 	return e
 }
@@ -278,6 +282,7 @@ func (e *Engine) ClearCaches() {
 	e.singles = map[string]*module{}
 	e.mu.Unlock()
 	e.libs.clear()
+	e.symbols.clear()
 	e.Reimport()
 }
 

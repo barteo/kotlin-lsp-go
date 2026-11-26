@@ -83,6 +83,7 @@ type WorkspaceClientCapabilities struct {
 	WorkspaceFolders      bool                 `json:"workspaceFolders,omitempty"`
 	Configuration         bool                 `json:"configuration,omitempty"`
 	Diagnostics           *RefreshCapability   `json:"diagnostics,omitempty"`
+	SemanticTokens        *RefreshCapability   `json:"semanticTokens,omitempty"`
 }
 
 type RefreshCapability struct {
@@ -97,6 +98,7 @@ type TextDocumentClientCapabilities struct {
 	Hover          *HoverClientCapabilities          `json:"hover,omitempty"`
 	Definition     *LinkClientCapabilities           `json:"definition,omitempty"`
 	TypeDefinition *LinkClientCapabilities           `json:"typeDefinition,omitempty"`
+	Implementation *LinkClientCapabilities           `json:"implementation,omitempty"`
 }
 
 type HoverClientCapabilities struct {
@@ -160,6 +162,12 @@ type ServerCapabilities struct {
 	DefinitionProvider        bool                     `json:"definitionProvider,omitempty"`
 	TypeDefinitionProvider    bool                     `json:"typeDefinitionProvider,omitempty"`
 	DocumentHighlightProvider bool                     `json:"documentHighlightProvider,omitempty"`
+	ReferencesProvider        bool                     `json:"referencesProvider,omitempty"`
+	ImplementationProvider    bool                     `json:"implementationProvider,omitempty"`
+	RenameProvider            *RenameOptions           `json:"renameProvider,omitempty"`
+	CallHierarchyProvider     bool                     `json:"callHierarchyProvider,omitempty"`
+	TypeHierarchyProvider     bool                     `json:"typeHierarchyProvider,omitempty"`
+	WorkspaceSymbolProvider   bool                     `json:"workspaceSymbolProvider,omitempty"`
 	ExecuteCommandProvider    *ExecuteCommandOptions   `json:"executeCommandProvider,omitempty"`
 	Workspace                 *WorkspaceOptions        `json:"workspace,omitempty"`
 }
@@ -534,4 +542,67 @@ type WorkspaceFoldersChangeEvent struct {
 
 type DidChangeWorkspaceFoldersParams struct {
 	Event WorkspaceFoldersChangeEvent `json:"event"`
+}
+
+type RenameOptions struct {
+	PrepareProvider bool `json:"prepareProvider,omitempty"`
+}
+
+type ReferenceContext struct {
+	IncludeDeclaration bool `json:"includeDeclaration"`
+}
+
+type ReferenceParams struct {
+	TextDocumentPositionParams
+	Context ReferenceContext `json:"context"`
+}
+
+type RenameParams struct {
+	TextDocumentPositionParams
+	NewName string `json:"newName"`
+}
+
+type PrepareRenameResult struct {
+	Range       Range  `json:"range"`
+	Placeholder string `json:"placeholder"`
+}
+
+type TextEdit struct {
+	Range   Range  `json:"range"`
+	NewText string `json:"newText"`
+}
+
+type WorkspaceEdit struct {
+	Changes map[DocumentURI][]TextEdit `json:"changes,omitempty"`
+}
+
+// HierarchyItem is a call or type hierarchy item: they have the same
+// shape.
+type HierarchyItem struct {
+	Name           string          `json:"name"`
+	Kind           SymbolKind      `json:"kind"`
+	Tags           []SymbolTag     `json:"tags,omitempty"`
+	Detail         string          `json:"detail,omitempty"`
+	URI            DocumentURI     `json:"uri"`
+	Range          Range           `json:"range"`
+	SelectionRange Range           `json:"selectionRange"`
+	Data           json.RawMessage `json:"data,omitempty"`
+}
+
+type HierarchyItemParams struct {
+	Item HierarchyItem `json:"item"`
+}
+
+type CallHierarchyIncomingCall struct {
+	From       HierarchyItem `json:"from"`
+	FromRanges []Range       `json:"fromRanges"`
+}
+
+type CallHierarchyOutgoingCall struct {
+	To         HierarchyItem `json:"to"`
+	FromRanges []Range       `json:"fromRanges"`
+}
+
+type WorkspaceSymbolParams struct {
+	Query string `json:"query"`
 }

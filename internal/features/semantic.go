@@ -278,81 +278,24 @@ func Locations(links []protocol.LocationLink) []protocol.Location {
 	return out
 }
 
-// DocumentHighlights returns the occurrences in f of the symbol at pos:
-// its declaration, if in f, and its references, reads and writes.
+// DocumentHighlights returns the occurrences in f of the declaration at
+// pos: its declaration, if in f, and its references, reads and writes.
 func DocumentHighlights(a *Analysis, f *File, pos protocol.Position) []protocol.DocumentHighlight {
-	t, ok := targetAt(a, f, pos)
-	if !ok || t.fact.Symbol == 0 {
+	k, ok := KeyAt(a, f, pos)
+	if !ok {
 		return nil
 	}
-	want, cls := t.fact.Symbol, ""
-	switch t.sym.Kind {
-	case "class":
-		cls = t.sym.Name
-	case "constructor":
-		// A constructor call: the class's occurrences.
-		if c, ok := a.Class(strings.TrimSuffix(t.sym.QualifiedName, ".<init>")); ok {
-			cls, want = c.Name, 0
-			if c.Declaration != nil {
-				if fa, ok := a.Result.Fact(*c.Declaration); ok {
-					want = fa.Symbol
-				}
-			}
-		}
-	}
-	clsFQ := ""
-	if cls != "" {
-		if s, ok := a.Result.Symbol(want); ok {
-			clsFQ = s.QualifiedName
-		}
-	}
-	af := t.f
 	var out []protocol.DocumentHighlight
-	psi.WalkNodes(af.Snapshot.RootNode(), func(n psi.NodeRef) bool {
-		if n.IsLeaf() {
-			return false
+	for _, o := range Occurrences(a, f, k) {
+		kind := protocol.HighlightRead
+		switch o.Kind {
+		case OccurrenceDeclaration:
+			kind = protocol.HighlightText
+		case OccurrenceWrite:
+			kind = protocol.HighlightWrite
 		}
-		k := n.NumericKind()
-		decl := isDeclaration(n)
-		if !decl && k != psi.KindREFERENCE_EXPRESSION && k != psi.KindUSER_TYPE {
-			return true
-		}
-		fa, ok := a.Result.Fact(analysis.ElementID{Snapshot: af.Snapshot.ID(), Node: n.ID()})
-		if !ok {
-			return true
-		}
-		match := want != 0 && fa.Symbol == want
-		if !match && cls != "" {
-			if fa.Symbol != 0 && k == psi.KindREFERENCE_EXPRESSION {
-				s, _ := a.Result.Symbol(fa.Symbol)
-				match = s.Kind == "constructor" && s.Owner == cls
-			}
-			if k == psi.KindUSER_TYPE && fa.Type != nil && clsFQ != "" && fa.Type.Name == clsFQ {
-				match = true
-			}
-		}
-		if !match {
-			return true
-		}
-		switch {
-		case decl:
-			if id := n.NameIdentifier(); id.Valid() {
-				out = append(out, protocol.DocumentHighlight{Range: af.Range(id), Kind: protocol.HighlightText})
-			}
-		case k == psi.KindUSER_TYPE:
-			if ref := n.ChildKind(psi.KindREFERENCE_EXPRESSION); ref.Valid() {
-				out = append(out, protocol.DocumentHighlight{Range: af.Range(ref), Kind: protocol.HighlightRead})
-			}
-			return false
-		default:
-			kind := protocol.HighlightRead
-			if isAssigned(n) {
-				kind = protocol.HighlightWrite
-			}
-			out = append(out, protocol.DocumentHighlight{Range: af.Range(n), Kind: kind})
-		}
-		return true
-	})
+		out = append(out, protocol.DocumentHighlight{Range: o.Range(), Kind: kind})
+	}
 	return out
 }
 

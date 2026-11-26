@@ -1,0 +1,178 @@
+==== animals.kt
+== at 3:21 Animal
+references:
+  animals.kt:3:21 [Animal]
+  animals.kt:8:32 [Animal]
+  animals.kt:17:14 [Animal]
+  animals.kt:21:24 [Animal]
+  keeper.kt:3:12 [Animal]
+  keeper.kt:7:40 [Animal]
+  keeper.kt:24:34 [Animal]
+implementations:
+  animals.kt:8:12 [Dog]
+  animals.kt:13:7 [Puppy]
+  animals.kt:17:8 [Cat]
+prepare rename: animals.kt:3:21 [Animal] "Animal"
+rename:
+  animals.kt:17:14 [Animal]
+  animals.kt:21:24 [Animal]
+  animals.kt:3:21 [Animal]
+  animals.kt:8:32 [Animal]
+  keeper.kt:24:34 [Animal]
+  keeper.kt:3:12 [Animal]
+  keeper.kt:7:40 [Animal]
+type hierarchy: Animal (5, zoo) at animals.kt:3:21 [Animal]
+  subtype: Dog (5, zoo) at animals.kt:8:12 [Dog]
+  subtype: Cat (19, zoo) at animals.kt:17:8 [Cat]
+== at 3:37 name
+references:
+  animals.kt:3:37 [name]
+  animals.kt:5:29 [name]
+  animals.kt:17:21 [name]
+  keeper.kt:20:18 [name]
+prepare rename: animals.kt:3:37 [name] "name"
+rename:
+  animals.kt:17:21 [name]
+  animals.kt:3:37 [name]
+  animals.kt:5:29 [name]
+  keeper.kt:20:18 [name]
+== at 4:23 sound
+references:
+  animals.kt:4:23 [sound]
+  animals.kt:5:41 [sound]
+  keeper.kt:21:13 [sound]
+implementations:
+  animals.kt:10:18 [sound]
+  animals.kt:14:23 [sound]
+  animals.kt:18:18 [sound]
+prepare rename: animals.kt:4:23 [sound] "sound"
+rename:
+  animals.kt:10:18 [sound]
+  animals.kt:14:23 [sound]
+  animals.kt:18:18 [sound]
+  animals.kt:4:23 [sound]
+  animals.kt:5:41 [sound]
+  keeper.kt:21:13 [sound]
+call hierarchy: sound (6, zoo.Animal) at animals.kt:4:23 [sound]
+  incoming: describe (6, zoo.Animal) at animals.kt:5:14 [describe] from 5:41
+== at 14:23 sound
+references:
+  animals.kt:14:23 [sound]
+prepare rename: animals.kt:14:23 [sound] "sound"
+rename:
+  animals.kt:10:18 [sound]
+  animals.kt:14:23 [sound]
+  animals.kt:18:18 [sound]
+  animals.kt:4:23 [sound]
+  animals.kt:5:41 [sound]
+  keeper.kt:21:13 [sound]
+call hierarchy: sound (6, zoo.Puppy) at animals.kt:14:23 [sound]
+== at 21:10 greet
+references:
+  animals.kt:21:10 [greet]
+  keeper.kt:5:12 [greet]
+  keeper.kt:10:26 [greet]
+  keeper.kt:12:9 [greet]
+prepare rename: animals.kt:21:10 [greet] "greet"
+rename:
+  animals.kt:21:10 [greet]
+  keeper.kt:10:26 [greet]
+  keeper.kt:12:9 [greet]
+  keeper.kt:5:12 [greet]
+call hierarchy: greet (12, zoo) at animals.kt:21:10 [greet]
+  incoming: feedAll (6, keeper.Keeper) at keeper.kt:8:14 [feedAll] from 10:26 12:9
+  outgoing: describe (6, zoo.Animal) at animals.kt:5:14 [describe] from 22:20
+== at 21:37 loud
+references:
+  animals.kt:21:37 [loud]
+  animals.kt:23:16 [loud]
+prepare rename: animals.kt:21:37 [loud] "loud"
+rename:
+  animals.kt:21:37 [loud]
+  animals.kt:23:16 [loud]
+==== keeper.kt
+== at 8:14 feedAll
+references:
+  keeper.kt:8:14 [feedAll]
+  keeper.kt:18:12 [feedAll]
+  keeper.kt:19:7 [feedAll]
+prepare rename: keeper.kt:8:14 [feedAll] "feedAll"
+rename:
+  keeper.kt:18:12 [feedAll]
+  keeper.kt:19:7 [feedAll]
+  keeper.kt:8:14 [feedAll]
+call hierarchy: feedAll (6, keeper.Keeper) at keeper.kt:8:14 [feedAll]
+  incoming: main (12, keeper) at keeper.kt:16:10 [main] from 18:12 19:7
+  outgoing: greet (12, zoo) at animals.kt:21:10 [greet] from 10:26 12:9
+  outgoing: constructor (9, zoo.Dog) at animals.kt:9:5 [constructor] from 12:20
+== at 10:26 greet
+references:
+  animals.kt:21:10 [greet]
+  keeper.kt:5:12 [greet]
+  keeper.kt:10:26 [greet]
+  keeper.kt:12:9 [greet]
+prepare rename: keeper.kt:10:26 [greet] "greet"
+rename:
+  animals.kt:21:10 [greet]
+  keeper.kt:10:26 [greet]
+  keeper.kt:12:9 [greet]
+  keeper.kt:5:12 [greet]
+call hierarchy: greet (12, zoo) at animals.kt:21:10 [greet]
+  incoming: feedAll (6, keeper.Keeper) at keeper.kt:8:14 [feedAll] from 10:26 12:9
+  outgoing: describe (6, zoo.Animal) at animals.kt:5:14 [describe] from 22:20
+== at 12:20 Dog
+references:
+  keeper.kt:12:20 [Dog]
+  keeper.kt:24:43 [Dog]
+prepare rename: keeper.kt:12:20 [Dog] "Dog"
+rename:
+  animals.kt:13:15 [Dog]
+  animals.kt:8:12 [Dog]
+  keeper.kt:12:20 [Dog]
+  keeper.kt:17:32 [Dog]
+  keeper.kt:24:43 [Dog]
+  keeper.kt:4:12 [Dog]
+type hierarchy: Dog (5, zoo) at animals.kt:8:12 [Dog]
+  supertype: Animal (5, zoo) at animals.kt:3:21 [Animal]
+  subtype: Puppy (5, zoo) at animals.kt:13:7 [Puppy]
+call hierarchy: constructor (9, zoo.Dog) at animals.kt:9:5 [constructor]
+  incoming: feedAll (6, keeper.Keeper) at keeper.kt:8:14 [feedAll] from 12:20
+  incoming: Keeper.get (12, keeper) at keeper.kt:24:21 [get] from 24:43
+== at 16:10 main
+references:
+  keeper.kt:16:10 [main]
+prepare rename: keeper.kt:16:10 [main] "main"
+rename:
+  keeper.kt:16:10 [main]
+call hierarchy: main (12, keeper) at keeper.kt:16:10 [main]
+  outgoing: Keeper (9, keeper) at keeper.kt:7:7 [Keeper] from 17:18
+  outgoing: Dog (9, zoo) at animals.kt:8:12 [Dog] from 17:32
+  outgoing: feedAll (6, keeper.Keeper) at keeper.kt:8:14 [feedAll] from 18:12 19:7
+  outgoing: Keeper.get (12, keeper) at keeper.kt:24:21 [get] from 20:14
+  outgoing: sound (6, zoo.Cat) at animals.kt:18:18 [sound] from 21:13
+== at 17:14 k
+references:
+  keeper.kt:17:14 [k]
+  keeper.kt:18:5 [k]
+  keeper.kt:19:5 [k]
+  keeper.kt:20:13 [k]
+prepare rename: keeper.kt:17:14 [k] "k"
+rename:
+  keeper.kt:17:14 [k]
+  keeper.kt:18:5 [k]
+  keeper.kt:19:5 [k]
+  keeper.kt:20:13 [k]
+== at 18:12 feedAll
+references:
+  keeper.kt:8:14 [feedAll]
+  keeper.kt:18:12 [feedAll]
+  keeper.kt:19:7 [feedAll]
+prepare rename: keeper.kt:18:12 [feedAll] "feedAll"
+rename:
+  keeper.kt:18:12 [feedAll]
+  keeper.kt:19:7 [feedAll]
+  keeper.kt:8:14 [feedAll]
+call hierarchy: feedAll (6, keeper.Keeper) at keeper.kt:8:14 [feedAll]
+  incoming: main (12, keeper) at keeper.kt:16:10 [main] from 18:12 19:7
+  outgoing: greet (12, zoo) at animals.kt:21:10 [greet] from 10:26 12:9
+  outgoing: constructor (9, zoo.Dog) at animals.kt:9:5 [constructor] from 12:20

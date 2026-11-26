@@ -1,11 +1,38 @@
 ==== shapes.kt
 == diagnostics
 26:67-26:80 info unsupported:unsupported types in signature [{ it.area() }]: 'maxByOrNull' uses types kc doesn't support
+== names
+1: shapes=namespace
+8: Shape=interface.declaration
+9: name=property.declaration.readonly String=class.defaultLibrary
+12: area=method.declaration Double=class.defaultLibrary
+16: Circle=class.declaration r=property.declaration.readonly Double=class.defaultLibrary Shape=interface
+17: name=property.declaration.readonly
+18: area=method.declaration r=property.readonly r=property.readonly
+21: Square=class.declaration side=property.declaration.readonly Double=class.defaultLibrary Shape=interface
+22: name=property.declaration.readonly String=class.defaultLibrary
+23: area=method.declaration Double=class.defaultLibrary side=property.readonly side=property.readonly
+26: T=typeParameter.declaration Shape=interface largest=function.declaration shapes=parameter.declaration.readonly List=class.defaultLibrary T=typeParameter T=typeParameter shapes=parameter.readonly maxByOrNull=function it=parameter area=function
 ==== use.kt
 == diagnostics
 15:10-15:19 error  [undefined]: unresolved reference: undefined
 16:15-16:19 error  [nope]: unresolved reference: nope
 17:15-17:17 warning INTEGER_LITERAL_CAST_INSTEAD_OF_TO_CALL [as]: use 'toInt' to give the type explicitly
+== names
+1: app=namespace
+3: shapes=namespace Circle=class
+4: shapes=namespace Shape=interface
+5: shapes=namespace
+7: main=function.declaration
+8: circles=variable.declaration.readonly listOf=function.defaultLibrary Circle=class Circle=class
+9: total=variable.declaration
+10: c=variable.declaration.readonly circles=variable.readonly
+11: total=variable c=variable area=method
+13: big=variable.declaration.readonly Shape=interface largest=function circles=variable.readonly
+14: println=function.defaultLibrary big=variable.readonly name=property.readonly total=variable
+15: undefined=function total=variable
+16: big=variable.readonly nope=function
+17: n=variable.declaration.readonly Int=class.defaultLibrary
 == at 8:14 circles
 hover [circles]:
   ```kotlin
@@ -59,6 +86,7 @@ hover [Shape]:
   - `name` — what the shape is called
 definition: shapes.kt:8:11 [Shape]
 type definition: shapes.kt:8:11 [Shape]
+highlights: 4:15 13:19
 == at 13:33 largest
 hover [largest]:
   ```kotlin
@@ -68,7 +96,7 @@ hover [largest]:
   *shapes*
 definition: shapes.kt:26:17 [largest]
 type definition: shapes.kt:16:12 [Circle]
-highlights: 13:33
+highlights: 5:15 13:33
 == at 14:18 big
 hover [big]:
   ```kotlin

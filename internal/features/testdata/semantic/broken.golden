@@ -1,6 +1,13 @@
 ==== broken.kt
 == diagnostics
 11:29-11:29 error syntax_error []: Expecting an element
+== names
+8: add=function.declaration a=parameter.declaration.readonly Int=class.defaultLibrary b=parameter.declaration.readonly Int=class.defaultLibrary Int=class.defaultLibrary a=parameter.readonly b=parameter.readonly
+10: edit=function.declaration xs=parameter.declaration.readonly MutableList=class.defaultLibrary String=class.defaultLibrary
+11: n=variable.declaration.readonly add=function
+12: s=variable.declaration.readonly String=class.defaultLibrary xs=parameter.readonly first=function.defaultLibrary
+13: xs=parameter.readonly add=method.defaultLibrary s=variable.readonly
+14: n=variable inc=function
 == at 11:18 add
 == at 12:29 first
 hover [first]:

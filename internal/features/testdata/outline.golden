@@ -21,6 +21,7 @@ enum E "" [E]
 class Names "= List<String>" [Names]
 function String.ext "<R> (block: (String) -> R): R" [ext]
 property raw "" [raw]
+function documented "()" [documented]
 == folding
 1-4 comment
 8-10 imports
@@ -188,6 +189,15 @@ property raw "" [raw]
 51:1 string "    multi" 
 52:1 string "    line" 
 53:1 string "\"\"\"" 
+55:1 comment "/** Documented. */" documentation
+56:1 decorator "@" 
+56:2 decorator "Suppress" 
+56:11 string "\"" 
+56:12 string "unused" 
+56:18 string "\"" 
+57:1 keyword "fun" 
+57:5 function "documented" declaration
+57:20 number "1" 
 == selection
 19:11-19:12 "x"
 19:11-19:20 "x: a.B<T>"
@@ -195,4 +205,4 @@ property raw "" [raw]
 19:5-19:85 "fun f(x: a.B<T>, vararg ys: Int): List<T…"
 16:70-30:2 "{\n    constructor(s: String) : this(1, s…"
 15:1-30:2 "@Deprecated(\"use D\")\nclass C<T : Any>(va…"
-1:1-54:1 "/**\n * A KDoc comment\n * over lines.\n */…"
+1:1-58:1 "/**\n * A KDoc comment\n * over lines.\n */…"

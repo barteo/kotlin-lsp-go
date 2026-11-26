@@ -65,6 +65,20 @@ type token struct {
 // Tokens that span lines (block comments, multi-line strings) are split
 // at line breaks, which every client accepts.
 func SemanticTokens(f *File, r *protocol.Range) (protocol.SemanticTokens, error) {
+	return SemanticTokensOf(nil, f, r)
+}
+
+// SemanticTokensOf classifies the file's tokens as SemanticTokens does
+// and, if a analyzed f, the names its references resolve to: by the
+// declarations they refer to, with their modifiers, and deprecated where
+// the checker warns of a deprecated use.
+func SemanticTokensOf(a *Analysis, f *File, r *protocol.Range) (protocol.SemanticTokens, error) {
+	var res *resolved
+	if a != nil {
+		if af := a.File(f.Snapshot.Path()); af != nil && af.Snapshot == f.Snapshot {
+			res = newResolved(a, af)
+		}
+	}
 	lo, hi := 0, len(f.Snapshot.Source())
 	if r != nil {
 		var err error
@@ -81,7 +95,11 @@ func SemanticTokens(f *File, r *protocol.Range) (protocol.SemanticTokens, error)
 		if !n.IsLeaf() {
 			return true
 		}
-		if typ, mods, ok := classify(n); ok && nr.Start < nr.End {
+		typ, mods, ok := classify(n)
+		if res != nil && n.NumericKind() == psi.KindIDENTIFIER {
+			typ, mods, ok = res.classify(n, typ, mods, ok)
+		}
+		if ok && nr.Start < nr.End {
 			toks = append(toks, token{nr.Start, nr.End, typ, mods})
 		}
 		return false

@@ -81,10 +81,59 @@ func (s *Server) publishDiagnostics(uri protocol.DocumentURI) {
 	s.publish(uri, &version, diags)
 }
 
+// tokensWait bounds how long semantic tokens wait for an analysis
+// before they fall back to the lexical ones; a client that can be asked
+// to refresh them is, when the analysis is done.
+const tokensWait = 2 * time.Second
+
+// tokensAnalysis returns the analysis of f for its semantic tokens, or
+// nil if it isn't done soon.
+func (s *Server) tokensAnalysis(ctx context.Context, f *features.File) *features.Analysis {
+	path := f.Snapshot.Path()
+	if !strings.HasSuffix(path, ".kt") || s.eng.IsLibrarySource(path) {
+		return nil
+	}
+	type result struct {
+		a   *features.Analysis
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		actx, cancel := context.WithTimeout(s.ctx, analysisTimeout)
+		defer cancel()
+		a, err := s.eng.Analyze(actx, path)
+		done <- result{a, err}
+	}()
+	select {
+	case r := <-done:
+		return r.a
+	case <-time.After(tokensWait):
+		if s.refreshTokens {
+			go func() {
+				if r := <-done; r.err == nil {
+					s.refreshSemanticTokens()
+				}
+			}()
+		}
+		return nil
+	case <-ctx.Done():
+		return nil
+	}
+}
+
+func (s *Server) refreshSemanticTokens() {
+	if err := s.conn.Call(s.ctx, "workspace/semanticTokens/refresh", nil, nil); err != nil && s.ctx.Err() == nil {
+		s.logf("semantic tokens refresh: %v", err)
+	}
+}
+
 // refreshAll computes the diagnostics of every open document again, as
 // after a change on disk or of the project model: by publishing them, or
 // by asking a client that pulls them to pull them again.
 func (s *Server) refreshAll() {
+	if s.refreshTokens {
+		go s.refreshSemanticTokens()
+	}
 	if s.pullDiagnostics {
 		if s.refreshDiagnostics {
 			go func() {
