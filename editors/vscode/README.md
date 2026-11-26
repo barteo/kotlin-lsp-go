@@ -4,7 +4,7 @@ Kotlin language support from `kcls`, the Kotlin language server built on
 [kc](https://github.com/barteo/kotlin-compiler-go). It starts in
 milliseconds and needs no JVM.
 
-What it does so far (milestone M4 of [docs/lsp.md](../../docs/lsp.md)):
+What it does so far (milestone M5 of [docs/lsp.md](../../docs/lsp.md)):
 
 - Type errors and warnings as you type, from kc's checker
 - Code completion: locals, members, extensions, auto-import, named
@@ -15,6 +15,9 @@ What it does so far (milestone M4 of [docs/lsp.md](../../docs/lsp.md)):
   add argument names; organize imports
 - Inlay hints for inferred types, parameter names and a lambda's `it`
   and `this`
+- Formatting of files, selections and as you type, by the Kotlin coding
+  conventions and `.editorconfig`; extract and inline variable; moving
+  files and folders updates packages and imports
 - Hover with the signature and KDoc
 - Go to definition and type definition, into library sources too
 - Highlights of a symbol's occurrences
@@ -28,7 +31,7 @@ What it does so far (milestone M4 of [docs/lsp.md](../../docs/lsp.md)):
   parameters, deprecated uses), and a TextMate grammar
 - Bracket, quote and KDoc comment completion
 
-Formatting and refactorings come in the next milestones.
+Code lenses to run `main` and tests come in the next milestone.
 
 ## Install from source
 
@@ -55,7 +58,9 @@ the `kcls` on `PATH`, or the binary `kcls.path` names.
 | `kcls.hints.lambdas` | inlay hints for a lambda's `it` and `this` (default `true`) |
 
 `"editor.codeActionsOnSave": {"source.organizeImports": "explicit"}`
-organizes the imports on save.
+organizes the imports on save, `"editor.formatOnSave": true` formats,
+and `"editor.formatOnType": true` formats as you type. The extension
+makes itself the default formatter for Kotlin.
 
 ## Commands
 

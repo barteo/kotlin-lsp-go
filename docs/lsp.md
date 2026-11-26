@@ -7,7 +7,7 @@ for VS Code and for coding agents such as Claude Code. kotlin-lsp is
 IntelliJ running headless, needs JDK 25 and takes seconds to start; kcls
 is one Go binary that starts in milliseconds.
 
-It is early work: milestones M0 to M4 of M0 to M7 are done. This page
+It is early work: milestones M0 to M5 of M0 to M7 are done. This page
 tracks what it does and what comes next.
 
 ## Run it
@@ -50,7 +50,9 @@ language server. Logs go to stderr, or to the file `-log` names.
 | Signature help | `signatureHelp` | done |
 | Quick fixes, intentions, organize imports | `codeAction` | done |
 | Inlay hints: types, parameter names, lambdas | `inlayHint` | done |
-| Formatting, extract and inline variable, move | `formatting`, `codeAction`, `willRenameFiles` | M5 |
+| Formatting: whole file, range, on type; `.editorconfig` | `formatting`, `rangeFormatting`, `onTypeFormatting` | done |
+| Extract and inline variable | `codeAction` | done |
+| Moving files and packages | `workspace/willRenameFiles` | done |
 | Run `main` and tests | `codeLens` | M6 |
 | Maven, multiplatform polish, release packaging | | M7 |
 
@@ -165,6 +167,46 @@ How the server behaves:
   Warnings include kotlinc's extra checkers, as IntelliJ shows them:
   unused variables and parameters, redundant modifiers, unreachable
   code.
+- **Refactorings** at the caret or selection: `refactor.extract`
+  declares the selected expression, or the call or chain at the caret,
+  as a `val` before its statement, named after what it calls or its type,
+  and uses it there. It isn't offered where that would change when the
+  expression is evaluated: in a branch, a loop's condition or body, a
+  lambda, or on the right of `&&`, `||` and `?:`. `refactor.inline`
+  replaces a local `val`'s references with its initializer, in
+  parentheses where precedence needs them, and removes it; not for a
+  `var`, nor for an initializer that calls something and is read more
+  than once.
+- **Formatting** follows the Kotlin coding conventions as IntelliJ
+  applies them, and changes whitespace only. It keeps the line breaks
+  the code has, as IntelliJ does by default, and never joins or wraps
+  lines: it indents each line (blocks, brackets, and continuations such
+  as `a +`, `val x =`, `.call()` and `?:` on the next line, by 4), spaces
+  each line's tokens (around operators and `->`, after commas, keywords
+  and the colons of types, inside a one-line lambda's braces), keeps at
+  most 2 blank lines and none before `}`, and ends the file with one
+  line break. Strings and comments stay as they are, but KDoc lines are
+  aligned. On the formatter's own test corpus, the stdlib's sources,
+  it changes 0.3% of the lines, mostly old-style continuation indents and
+  `while(` without a space. `.editorconfig` files set `indent_style`,
+  `indent_size`, `tab_width`, `insert_final_newline` and IntelliJ's
+  `ij_kotlin_keep_blank_lines_in_code` and
+  `ij_kotlin_keep_blank_lines_before_right_brace`; without them the
+  client's tab size and spaces apply. `max_line_length` is ignored, as
+  nothing is wrapped. Range formatting formats the lines the range
+  touches. On-type formatting formats a line ended by `}` or `;`, and on
+  a line break the line ended and the indentation of the new one (VS
+  Code's `editor.formatOnType`). A file with syntax errors is indented
+  only.
+- **Moving files**: before the client renames or moves `.kt` files or
+  directories, `workspace/willRenameFiles` returns the edits that keep
+  the code compiling. A moved file's package directive follows its
+  directory, judged by its old package's directories (`src/a/b` for
+  `a.b`); a file whose directory didn't match its package moves as it
+  is. The imports and package-qualified references of its top-level
+  declarations follow it in the modules that can see it; the files of
+  its old package that used them get imports, and so does the moved file
+  for the old package's declarations it used.
 - A request that fails, even with a panic, is answered with an error, and
   the server keeps serving.
 
@@ -276,7 +318,13 @@ Still to come from kc:
   errors (type mismatches, missing arguments) need names and ranges;
 - which names an import brings into use: organize imports judges by
   names, so an import whose name a member or local also has counts as
-  used.
+  used;
+- formatting that wraps long lines, adds or removes line breaks, or
+  aligns, as IntelliJ's options for each construct do; and extracting a
+  variable from an expression-bodied function or a property initializer,
+  which takes converting it to a block first;
+- renaming a class with its file, which IntelliJ offers on a file
+  rename.
 
 ## Tests
 
@@ -296,6 +344,12 @@ Still to come from kc:
   the default settings and with every parameter name.
   `testdata/actions/<dir>.golden` records each diagnostic's quick fixes,
   the intentions at each word, and organize imports, with their edits.
+- `internal/lsp/format/testdata/<name>.golden` is `<name>.kt` formatted.
+  `TestWhitespaceOnly` formats every Kotlin file of the repository and
+  checks that only whitespace changes and that formatting again changes
+  nothing. `KCLS_FORMAT_CORPUS=<dir> go test ./internal/lsp/format -run
+  Corpus -v` reports the lines formatting changes in formatted code,
+  such as the stdlib's sources (`kotlin-stdlib-sources.jar`, unzipped).
   Check a change, then
   accept it with `go test ./internal/lsp/features -update`.
 - `KCLS_GRADLE_TEST=1 go test ./internal/lsp/project -run Gradle` imports

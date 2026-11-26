@@ -14,7 +14,8 @@
     "vscode": "^1.90.0"
   },
   "categories": [
-    "Programming Languages"
+    "Programming Languages",
+    "Formatters"
   ],
   "keywords": [
     "kotlin",
@@ -48,6 +49,11 @@
         "path": "./syntaxes/kotlin.tmLanguage.json"
       }
     ],
+    "configurationDefaults": {
+      "[kotlin]": {
+        "editor.defaultFormatter": "barteo.kcls"
+      }
+    },
     "configuration": {
       "title": "Kotlin (kcls)",
       "properties": {
