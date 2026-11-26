@@ -152,6 +152,19 @@ function serverPath(context: vscode.ExtensionContext, configured: string): strin
   }
   const bundled = context.asAbsolutePath(path.join("server", process.platform === "win32" ? "kcls.exe" : "kcls"));
   if (fs.existsSync(bundled)) {
+    // An unpacked extension may have lost the binaries' executable bits;
+    // kc, next to kcls, compiles what the run lenses run.
+    for (const bin of [bundled, path.join(path.dirname(bundled), "kc")]) {
+      try {
+        fs.accessSync(bin, fs.constants.X_OK);
+      } catch {
+        try {
+          fs.chmodSync(bin, 0o755);
+        } catch {
+          // Not there, or not ours to change.
+        }
+      }
+    }
     return bundled;
   }
   return "kcls";

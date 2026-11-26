@@ -6,7 +6,12 @@
     {
       "name": "kcls",
       "source": "./editors/claude-code",
-      "description": "Kotlin code intelligence (kcls) for .kt and .kts files"
+      "description": "Kotlin code intelligence (kcls) for .kt and .kts files",
+      "version": "0.0.1",
+      "license": "Apache-2.0",
+      "homepage": "https://github.com/barteo/kotlin-compiler-go/tree/main/editors/claude-code",
+      "keywords": ["kotlin", "lsp", "language-server"],
+      "category": "development"
     }
   ]
 }
