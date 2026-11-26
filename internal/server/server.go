@@ -33,6 +33,9 @@ type Options struct {
 	CacheDir string
 	// NoImport never runs Gradle.
 	NoImport bool
+	// KC is the kc binary that compiles what run lenses run; empty to
+	// look for it.
+	KC string
 }
 
 // state is a server's place in the lifecycle.
@@ -254,7 +257,7 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 		if err := decode(req, &p); err != nil {
 			return nil, err
 		}
-		return s.executeCommand(p)
+		return s.executeCommand(ctx, p)
 
 	case "textDocument/hover", "textDocument/definition", "textDocument/typeDefinition", "textDocument/documentHighlight":
 		var p protocol.TextDocumentPositionParams
@@ -278,6 +281,8 @@ func (s *Server) handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Re
 		"workspace/symbol":
 		return s.workspace(ctx, req)
 
+	case "textDocument/codeLens":
+		return s.codeLens(req)
 	case "textDocument/documentSymbol":
 		var p protocol.DocumentSymbolParams
 		if err := decode(req, &p); err != nil {
@@ -473,6 +478,7 @@ func (s *Server) initialize(p *protocol.InitializeParams) *protocol.InitializeRe
 			DocumentFormattingProvider:       true,
 			DocumentRangeFormattingProvider:  true,
 			DocumentOnTypeFormattingProvider: &protocol.DocumentOnTypeFormattingOptions{FirstTriggerCharacter: "}", MoreTriggerCharacter: []string{";", "\n"}},
+			CodeLensProvider:                 &protocol.CodeLensOptions{},
 			ExecuteCommandProvider:           &protocol.ExecuteCommandOptions{Commands: commands},
 			Workspace: &protocol.WorkspaceOptions{
 				WorkspaceFolders: &protocol.WorkspaceFoldersServerCapabilities{Supported: true, ChangeNotifications: true},

@@ -395,6 +395,25 @@ func (e *Engine) module(ctx context.Context, path string) (*module, error) {
 	}
 }
 
+// RunModule returns the module of the file at path, the modules whose
+// sources it uses, and the workspace the file is in, nil for none.
+func (e *Engine) RunModule(ctx context.Context, path string) (*project.Workspace, *project.Module, []*project.Module, error) {
+	m, err := e.module(ctx, path)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	var ws *project.Workspace
+	best := ""
+	for _, r := range e.roots {
+		if within(path, r.path) && len(r.path) > len(best) {
+			ws, best = r.ws, r.path
+		}
+	}
+	return ws, m.pm, m.deps, nil
+}
+
 // within reports whether path is dir or inside it.
 func within(path, dir string) bool {
 	rel, err := filepath.Rel(dir, path)

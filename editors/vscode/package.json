@@ -127,6 +127,42 @@
         "command": "kcls.clearCaches",
         "title": "Clear Caches and Reimport",
         "category": "Kotlin"
+      },
+      {
+        "command": "kcls.run",
+        "title": "Run",
+        "category": "Kotlin"
+      },
+      {
+        "command": "kcls.prepareRun",
+        "title": "Prepare Run",
+        "category": "Kotlin"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "kcls.run",
+          "when": "false"
+        },
+        {
+          "command": "kcls.prepareRun",
+          "when": "false"
+        }
+      ]
+    },
+    "taskDefinitions": [
+      {
+        "type": "kcls",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The main class or tests a run code lens ran"
+          }
+        }
       }
     ]
   },

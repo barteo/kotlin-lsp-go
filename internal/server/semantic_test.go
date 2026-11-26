@@ -66,7 +66,7 @@ func TestSemantic(t *testing.T) {
 	if !caps.HoverProvider || !caps.DefinitionProvider || !caps.TypeDefinitionProvider || !caps.DocumentHighlightProvider {
 		t.Fatalf("capabilities: %+v", caps)
 	}
-	if caps.ExecuteCommandProvider == nil || len(caps.ExecuteCommandProvider.Commands) != 2 {
+	if caps.ExecuteCommandProvider == nil || len(caps.ExecuteCommandProvider.Commands) != 3 {
 		t.Fatalf("commands: %+v", caps.ExecuteCommandProvider)
 	}
 	uri := pathURI(filepath.Join(root, "app/Main.kt"))

@@ -20,7 +20,7 @@ const (
 	cmdClearCaches = "kcls.clearCaches"
 )
 
-var commands = []string{cmdReimport, cmdClearCaches}
+var commands = []string{cmdReimport, cmdClearCaches, features.PrepareRunCommand}
 
 // analysisTimeout bounds how long a published diagnostic waits for an
 // analysis, which waits for a Gradle import.
@@ -189,8 +189,10 @@ func (s *Server) semantic(ctx context.Context, method string, p protocol.TextDoc
 	return nil, nil
 }
 
-func (s *Server) executeCommand(p protocol.ExecuteCommandParams) (any, error) {
+func (s *Server) executeCommand(ctx context.Context, p protocol.ExecuteCommandParams) (any, error) {
 	switch p.Command {
+	case features.PrepareRunCommand:
+		return s.prepareRun(ctx, p.Arguments)
 	case cmdReimport:
 		s.logf("command: reimport")
 		s.eng.Reimport()

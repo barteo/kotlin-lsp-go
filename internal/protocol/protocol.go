@@ -212,6 +212,7 @@ type ServerCapabilities struct {
 	DocumentFormattingProvider       bool                             `json:"documentFormattingProvider,omitempty"`
 	DocumentRangeFormattingProvider  bool                             `json:"documentRangeFormattingProvider,omitempty"`
 	DocumentOnTypeFormattingProvider *DocumentOnTypeFormattingOptions `json:"documentOnTypeFormattingProvider,omitempty"`
+	CodeLensProvider                 *CodeLensOptions                 `json:"codeLensProvider,omitempty"`
 	Workspace                        *WorkspaceOptions                `json:"workspace,omitempty"`
 }
 
@@ -842,6 +843,23 @@ const (
 	InlayHintType      InlayHintKind = 1
 	InlayHintParameter InlayHintKind = 2
 )
+
+// CodeLensOptions are the server's code lens capability.
+type CodeLensOptions struct {
+	ResolveProvider bool `json:"resolveProvider,omitempty"`
+}
+
+// CodeLensParams are textDocument/codeLens's.
+type CodeLensParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+}
+
+// CodeLens is a command shown in the text, above a line.
+type CodeLens struct {
+	Range   Range    `json:"range"`
+	Command *Command `json:"command,omitempty"`
+	Data    any      `json:"data,omitempty"`
+}
 
 type InlayHintParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`

@@ -1,13 +1,15 @@
 // The VS Code client of kcls, the Kotlin language server built on kc.
 // It starts the server over stdio and adds commands to restart it and to
-// show its log. The server's own commands, kcls.reimport and
-// kcls.clearCaches, are registered by the language client from the
+// show its log, and kcls.run, which runs what a run code lens names in a
+// terminal. The server's own commands, kcls.reimport, kcls.clearCaches
+// and kcls.prepareRun, are registered by the language client from the
 // server's executeCommandProvider; package.json gives them their titles.
 
 import * as fs from "fs";
 import * as path from "path";
 import * as vscode from "vscode";
 import {
+  ExecuteCommandRequest,
   LanguageClient,
   LanguageClientOptions,
   ServerOptions,
@@ -31,6 +33,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       await start(context);
     }),
     vscode.commands.registerCommand("kcls.showLog", () => output?.show(true)),
+    vscode.commands.registerCommand("kcls.run", run),
     vscode.workspace.onDidChangeConfiguration(async (e) => {
       if (e.affectsConfiguration("kcls.path") || e.affectsConfiguration("kcls.args")) {
         await stop();
@@ -97,6 +100,48 @@ async function stop(): Promise<void> {
   } catch (err) {
     output?.appendLine(`Stopping the server: ${err}`);
   }
+}
+
+// RunPlan is the server's answer to kcls.prepareRun: a POSIX shell
+// command and the directory to run it in.
+interface RunPlan {
+  name: string;
+  cwd: string;
+  command: string;
+}
+
+// run runs the main function or tests of a run code lens: it saves the
+// open files, which the run compiles from disk, asks the server how to
+// run them, and runs that as a task in a terminal.
+async function run(args: unknown): Promise<void> {
+  if (!client) {
+    vscode.window.showErrorMessage("Kotlin (kcls): the language server isn't running.");
+    return;
+  }
+  await vscode.workspace.saveAll(false);
+  let plan: RunPlan;
+  try {
+    plan = await client.sendRequest(ExecuteCommandRequest.type, { command: "kcls.prepareRun", arguments: [args] });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    vscode.window.showErrorMessage(`Kotlin (kcls): can't run: ${msg}`);
+    return;
+  }
+  const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(plan.cwd));
+  const task = new vscode.Task(
+    { type: "kcls", name: plan.name },
+    folder ?? vscode.TaskScope.Workspace,
+    plan.name,
+    "kcls",
+    new vscode.ProcessExecution("/bin/sh", ["-c", plan.command], { cwd: plan.cwd }),
+  );
+  task.presentationOptions = {
+    reveal: vscode.TaskRevealKind.Always,
+    panel: vscode.TaskPanelKind.Dedicated,
+    clear: true,
+    focus: false,
+  };
+  await vscode.tasks.executeTask(task);
 }
 
 // serverPath returns the server to run: the configured path, else the
