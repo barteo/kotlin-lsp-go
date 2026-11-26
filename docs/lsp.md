@@ -7,7 +7,7 @@ for VS Code and for coding agents such as Claude Code. kotlin-lsp is
 IntelliJ running headless, needs JDK 25 and takes seconds to start; kcls
 is one Go binary that starts in milliseconds.
 
-It is early work: milestones M0 to M5 of M0 to M7 are done. This page
+It is early work: milestones M0 to M6 of M0 to M7 are done. This page
 tracks what it does and what comes next.
 
 ## Run it
@@ -53,7 +53,7 @@ language server. Logs go to stderr, or to the file `-log` names.
 | Formatting: whole file, range, on type; `.editorconfig` | `formatting`, `rangeFormatting`, `onTypeFormatting` | done |
 | Extract and inline variable | `codeAction` | done |
 | Moving files and packages | `workspace/willRenameFiles` | done |
-| Run `main` and tests | `codeLens` | M6 |
+| Run `main` and tests | `codeLens`, `kcls.prepareRun` | done |
 | Maven, multiplatform polish, release packaging | | M7 |
 
 How the server behaves:
@@ -207,6 +207,32 @@ How the server behaves:
   declarations follow it in the modules that can see it; the files of
   its old package that used them get imports, and so does the moved file
   for the old package's declarations it used.
+- **Running** `main` functions and tests from code lenses: ▶ Run above
+  a top-level `main` (no parameters, or `Array<String>`) and a
+  `@JvmStatic main` in an object or companion object, ▶ Run tests above
+  a class with tests, and ▶ Run test above each test function. A test
+  function is one annotated `@Test` (JUnit 4 or 5, TestNG, kotlin.test),
+  `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory` or
+  `@TestTemplate`, as the file's imports resolve it, in a class that is
+  not abstract. The lenses come from the syntax, so they show at once.
+  The lens's command, `kcls.run`, is the client's: it asks the server
+  how to run the target with `kcls.prepareRun`, which answers a shell
+  command and its directory, and runs that in a terminal (VS Code saves
+  the open files first).
+  - Tests of a Gradle build run with the module's test task, filtered:
+    `./gradlew :app:cleanTest :app:test --tests 'a.FooTest.bar'`; the
+    clean task makes Gradle run them again when nothing changed.
+  - A `main` function, and tests outside Gradle, compile with kc into
+    kcls's cache: the module's Kotlin sources together with those of the
+    modules it depends on, its Java sources with the JDK's `javac`,
+    against the module's class path, with its compiler plugins. Then
+    `java` runs the main class with the modules' `resources` directories
+    on the class path, or the tests with a launcher on the module's class
+    path: the JUnit Platform's console launcher
+    (`junit-platform-console-standalone`), JUnit 4's `JUnitCore` (a
+    whole class) or TestNG. Argument files keep the class path off the
+    command line. kc is the binary running the server, when that is
+    `kc -lsp`, else `kc` next to `kcls`, else `kc` on `PATH`.
 - A request that fails, even with a panic, is answered with an error, and
   the server keeps serving.
 
@@ -263,6 +289,9 @@ palette):
   again.
 - `kcls.clearCaches` (*Kotlin: Clear Caches and Reimport*) also forgets
   the open class paths, the cached model and the extracted sources.
+- `kcls.prepareRun` takes a run lens's argument (`uri`, `kind` of `main`,
+  `test` or `tests`, `class`, `method`) and returns how to run it:
+  `{"name", "cwd", "command"}`, `command` a POSIX shell command.
 
 kcls's cache is in the user cache directory (`~/Library/Caches/kcls`,
 `~/.cache/kcls`), or in `$KCLS_CACHE`.
@@ -324,7 +353,12 @@ Still to come from kc:
   variable from an expression-bodied function or a property initializer,
   which takes converting it to a block first;
 - renaming a class with its file, which IntelliJ offers on a file
-  rename.
+  rename;
+- running Android code, which needs Gradle and a device, and debugging,
+  which needs a debug adapter (not a goal of kcls); a run doesn't wait
+  for a Gradle import that has yet to see a new module, so a test file
+  in a new source set runs with the task its directories name
+  (`src/test` → `test`, `src/jvmTest` → `jvmTest`).
 
 ## Tests
 
@@ -344,14 +378,17 @@ Still to come from kc:
   the default settings and with every parameter name.
   `testdata/actions/<dir>.golden` records each diagnostic's quick fixes,
   the intentions at each word, and organize imports, with their edits.
+  Check a change, then
+  accept it with `go test ./internal/lsp/features -update`.
 - `internal/lsp/format/testdata/<name>.golden` is `<name>.kt` formatted.
   `TestWhitespaceOnly` formats every Kotlin file of the repository and
   checks that only whitespace changes and that formatting again changes
   nothing. `KCLS_FORMAT_CORPUS=<dir> go test ./internal/lsp/format -run
   Corpus -v` reports the lines formatting changes in formatted code,
   such as the stdlib's sources (`kotlin-stdlib-sources.jar`, unzipped).
-  Check a change, then
-  accept it with `go test ./internal/lsp/features -update`.
+- `TestRunMain` (`internal/lsp/features`) builds kc, plans a run lens of
+  a module with Kotlin, Java and resources, and runs it with the JDK;
+  `-short` skips it.
 - `KCLS_GRADLE_TEST=1 go test ./internal/lsp/project -run Gradle` imports
   a two-project Gradle build. It needs Gradle (`KCLS_GRADLE` names the
   binary) and the Kotlin Gradle plugin, cached or online.

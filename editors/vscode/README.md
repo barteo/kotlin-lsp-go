@@ -4,7 +4,7 @@ Kotlin language support from `kcls`, the Kotlin language server built on
 [kc](https://github.com/barteo/kotlin-compiler-go). It starts in
 milliseconds and needs no JVM.
 
-What it does so far (milestone M5 of [docs/lsp.md](../../docs/lsp.md)):
+What it does so far (milestone M6 of [docs/lsp.md](../../docs/lsp.md)):
 
 - Type errors and warnings as you type, from kc's checker
 - Code completion: locals, members, extensions, auto-import, named
@@ -18,6 +18,9 @@ What it does so far (milestone M5 of [docs/lsp.md](../../docs/lsp.md)):
 - Formatting of files, selections and as you type, by the Kotlin coding
   conventions and `.editorconfig`; extract and inline variable; moving
   files and folders updates packages and imports
+- ▶ Run above `main` functions, and ▶ Run test(s) above JUnit, TestNG
+  and kotlin.test tests, in a terminal: tests with the Gradle build's
+  test task, `main` compiled with kc and run with `java`
 - Hover with the signature and KDoc
 - Go to definition and type definition, into library sources too
 - Highlights of a symbol's occurrences
@@ -31,20 +34,21 @@ What it does so far (milestone M5 of [docs/lsp.md](../../docs/lsp.md)):
   parameters, deprecated uses), and a TextMate grammar
 - Bracket, quote and KDoc comment completion
 
-Code lenses to run `main` and tests come in the next milestone.
-
 ## Install from source
 
 ```sh
 cd editors/vscode
 npm install
 go build -o server/kcls ../../cmd/kcls
+go build -o server/kc ../../cmd/kc
 npx vsce package
 code --install-extension kcls-*.vsix
 ```
 
-`server/kcls` is bundled in the package. Without it, the extension runs
-the `kcls` on `PATH`, or the binary `kcls.path` names.
+`server/kcls` and `server/kc` are bundled in the package. Without them,
+the extension runs the `kcls` on `PATH`, or the binary `kcls.path`
+names. Running `main` compiles with the `kc` next to the server, else
+the one on `PATH`.
 
 ## Settings
 

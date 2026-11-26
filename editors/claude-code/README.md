@@ -27,7 +27,7 @@ session.
 
 ## What it answers
 
-At milestone M5 (see [docs/lsp.md](../../docs/lsp.md)), kcls reports
+At milestone M6 (see [docs/lsp.md](../../docs/lsp.md)), kcls reports
 type errors and warnings, and answers every request of the LSP tool:
 hover, go to definition (into library sources too), find references,
 document and workspace symbols, go to implementation, and incoming and
