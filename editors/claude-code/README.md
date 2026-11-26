@@ -27,11 +27,11 @@ session.
 
 ## What it answers
 
-At milestone M1 (see [docs/lsp.md](../../docs/lsp.md)), kcls reports
-type errors and warnings, and answers hover, go to definition (into
-library sources too) and document symbols. References, workspace
-symbols, implementations and call hierarchy come with the next
-milestones. kcls reads files Claude Code never opened from disk, and
+At milestone M2 (see [docs/lsp.md](../../docs/lsp.md)), kcls reports
+type errors and warnings, and answers every request of the LSP tool:
+hover, go to definition (into library sources too), find references,
+document and workspace symbols, go to implementation, and incoming and
+outgoing calls. kcls reads files Claude Code never opened from disk, and
 reads them again when they change, so the answers follow the edits an
 agent makes. It imports a Gradle build in the background the first time
 and caches the model.

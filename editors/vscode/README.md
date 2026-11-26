@@ -4,20 +4,23 @@ Kotlin language support from `kcls`, the Kotlin language server built on
 [kc](https://github.com/barteo/kotlin-compiler-go). It starts in
 milliseconds and needs no JVM.
 
-What it does so far (milestone M1 of [docs/lsp.md](../../docs/lsp.md)):
+What it does so far (milestone M2 of [docs/lsp.md](../../docs/lsp.md)):
 
 - Type errors and warnings as you type, from kc's checker
 - Hover with the signature and KDoc
 - Go to definition and type definition, into library sources too
 - Highlights of a symbol's occurrences
+- Find references, rename (overrides included), go to implementation
+- Call hierarchy and type hierarchy
+- Go to symbol in workspace, over the sources and library classes
 - Gradle projects, imported in the background, or a `kcls.json`
 - Outline and breadcrumbs, with each function's signature
 - Folding, expand and shrink selection
-- Semantic highlighting from the syntax tree, and a TextMate grammar
+- Semantic highlighting from resolution (methods, read-only properties,
+  parameters, deprecated uses), and a TextMate grammar
 - Bracket, quote and KDoc comment completion
 
-Find references, completion, code actions and refactorings come in the
-next milestones.
+Completion, code actions and refactorings come in the next milestones.
 
 ## Install from source
 

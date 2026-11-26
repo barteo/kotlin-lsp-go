@@ -37,15 +37,15 @@ language server. Logs go to stderr, or to the file `-log` names.
 | Outline and breadcrumbs, with signatures | `documentSymbol` | done |
 | Folding | `foldingRange` | done |
 | Expand and shrink selection | `selectionRange` | done |
-| Highlighting from syntax | `semanticTokens/full`, `/range` | done |
+| Highlighting from syntax, then from resolution | `semanticTokens/full`, `/range` | done |
 | Type errors and warnings, with kotlinc's names | diagnostics | done |
 | Hover with signature and KDoc | `hover` | done |
 | Go to definition and type definition, into library sources | `definition`, `typeDefinition` | done |
 | Occurrences of a symbol in a file | `documentHighlight` | done |
 | Gradle and `kcls.json` projects; reimport, clear caches | `executeCommand` | done |
-| Find references, implementations, rename | `references`, `implementation`, `rename` | M2 |
-| Call and type hierarchy | `callHierarchy/*`, `typeHierarchy/*` | M2 |
-| Workspace symbols, with libraries | `workspace/symbol` | M2 |
+| Find references, implementations, rename | `references`, `implementation`, `prepareRename`, `rename` | done |
+| Call and type hierarchy | `callHierarchy/*`, `typeHierarchy/*` | done |
+| Workspace symbols, with library classes | `workspace/symbol` | done |
 | Completion, auto-import, signature help | `completion`, `signatureHelp` | M3 |
 | Quick fixes, organize imports, inlay hints | `codeAction`, `inlayHint` | M4 |
 | Formatting, extract and inline variable, move | `formatting`, `codeAction`, `willRenameFiles` | M5 |
@@ -71,6 +71,35 @@ How the server behaves:
   highlights) analyze the file's module, or reuse the analysis of the
   same files. They work in files with syntax errors, for the code around
   the errors.
+- **References and rename** look in the modules that can see the
+  declaration: its own and those that depend on it. Only the files that
+  contain its name as a word are read, and their modules analyzed. A
+  reference counts if it resolves to the same declaration, so a
+  same-named declaration in another module or class isn't one. A class's
+  references include its constructor calls, type references and
+  imports; a parameter's, its named arguments. Renaming a member renames
+  the members it overrides and those that override it, and a new name
+  that is a keyword is quoted in backticks. Library declarations can't
+  be renamed.
+- **Implementations** of a class are its subclasses in the sources,
+  direct or not; of a member, the members that override it.
+  **Hierarchies**: incoming calls group the calls by the function,
+  constructor, property or class whose code makes them; outgoing calls
+  include operator calls (`a[i]`, `-x`, `x++`) and calls into libraries
+  that have sources. Members of Kotlin's built-in types, as `Int.plus` or
+  `Map.get`, have none, so calls of them are left out. A type's subtypes are
+  the classes that list it as a supertype.
+- **Workspace symbols** match the query's letters in order, best first:
+  the exact name, a prefix, camel humps (`SB` or `StrBu` for
+  `StringBuilder`), a substring. They are the declarations of every
+  module's Kotlin files, and, for a query of two letters or more, the
+  classes of the class path and the JDK that have sources, at most 200.
+- **Semantic tokens** classify names by what they resolve to (a method,
+  a read-only property, a parameter, an interface, a type parameter),
+  with `deprecated` where kotlinc would warn and `defaultLibrary` for
+  Kotlin's and Java's own declarations. They wait up to 2 s for the
+  analysis, else they come from the syntax and the client is asked to
+  refresh them when the analysis is done.
 - A request that fails, even with a panic, is answered with an error, and
   the server keeps serving.
 
@@ -162,7 +191,11 @@ Still to come from kc:
   modules (each edit checks the whole module now);
 - end positions and kotlinc names for the checker's errors, as warnings
   have; kcls widens an error to the expression that starts where it does;
-- the scope at a position, for completion.
+- the scope at a position, for completion;
+- override links and declaration flags (open, val or var, deprecated)
+  in the facts: kcls reads overrides and flags from the syntax, and
+  library members' flags it doesn't know;
+- library top-level functions and properties for workspace symbols.
 
 ## Tests
 
@@ -173,7 +206,10 @@ Still to come from kc:
 - `internal/lsp/features/testdata/*.golden` records each feature's output
   for the `.kt` files next to it. `testdata/semantic/<dir>.golden`
   records, for each module directory, the diagnostics, and the hover,
-  definitions and highlights at each `/*|*/` caret. Check a change, then
+  definitions and highlights at each `/*|*/` caret, and the semantic
+  tokens of the names. `testdata/workspace/<dir>.golden` records the
+  references, implementations, rename and hierarchies at each caret.
+  Check a change, then
   accept it with `go test ./internal/lsp/features -update`.
 - `KCLS_GRADLE_TEST=1 go test ./internal/lsp/project -run Gradle` imports
   a two-project Gradle build. It needs Gradle (`KCLS_GRADLE` names the
