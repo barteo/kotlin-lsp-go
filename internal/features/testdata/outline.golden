@@ -1,0 +1,198 @@
+== diagnostics
+== symbols
+constant MAX "" [MAX]
+property String.shout "String" [shout]
+class C "<T: Any>" [C] deprecated
+  property p "Int" [p]
+  property q "String" [q]
+  constructor constructor "(s: String)" [constructor]
+  method f "(x: a.B<T>, vararg ys: Int): List<T>" [f]
+  property s "" [s]
+  object Companion "" [object]
+    method create "(): C<String>" [create]
+interface Iface "" [Iface]
+class Ann "" [Ann]
+object Single "" [Single]
+  property x "" [x]
+enum E "" [E]
+  enumMember A "" [A]
+  enumMember B "" [B]
+    method toString "()" [toString]
+class Names "= List<String>" [Names]
+function String.ext "<R> (block: (String) -> R): R" [ext]
+property raw "" [raw]
+== folding
+1-4 comment
+8-10 imports
+16-29 
+23-24 
+27-29 comment
+40-47 
+43-45 
+50-53 
+== tokens
+1:1 comment "/**" documentation
+2:1 comment " * A KDoc comment" documentation
+3:1 comment " * over lines." documentation
+4:1 comment " */" documentation
+5:1 decorator "@" 
+5:2 keyword "file" 
+5:7 decorator "JvmName" 
+5:15 string "\"" 
+5:16 string "Outline" 
+5:23 string "\"" 
+6:1 keyword "package" 
+6:9 namespace "a" 
+6:11 namespace "b" 
+8:1 keyword "import" 
+8:8 namespace "kotlin" 
+8:15 namespace "collections" 
+8:27 class "List" 
+9:1 keyword "import" 
+9:8 namespace "java" 
+9:13 namespace "io" 
+9:16 class "File" 
+9:21 keyword "as" 
+10:1 keyword "import" 
+10:8 namespace "kotlin" 
+10:15 namespace "math" 
+12:1 keyword "const" 
+12:7 keyword "val" 
+12:11 property "MAX" declaration,readonly
+12:17 number "10" 
+13:1 keyword "val" 
+13:5 type "String" 
+13:12 property "shout" declaration,readonly
+13:19 type "String" 
+13:26 keyword "get" 
+13:34 function "uppercase" 
+15:1 decorator "@" 
+15:2 decorator "Deprecated" 
+15:13 string "\"" 
+15:14 string "use D" 
+15:19 string "\"" 
+16:1 keyword "class" 
+16:7 class "C" declaration,deprecated
+16:9 typeParameter "T" declaration
+16:13 type "Any" 
+16:18 keyword "val" 
+16:22 property "p" declaration,readonly
+16:25 type "Int" 
+16:30 keyword "var" 
+16:34 property "q" declaration
+16:37 type "String" 
+16:45 parameter "r" declaration,readonly
+16:48 type "Long" 
+16:56 type "Base" 
+16:64 type "Iface" 
+17:5 keyword "constructor" 
+17:17 parameter "s" declaration,readonly
+17:20 type "String" 
+17:30 keyword "this" 
+17:35 number "1" 
+17:41 number "2L" 
+19:5 keyword "fun" 
+19:9 method "f" declaration
+19:11 parameter "x" declaration,readonly
+19:14 namespace "a" 
+19:16 type "B" 
+19:18 type "T" 
+19:22 keyword "vararg" 
+19:29 parameter "ys" declaration,readonly
+19:33 type "Int" 
+19:39 type "List" 
+19:44 type "T" 
+19:49 label "loop" 
+19:53 label "@" 
+19:55 keyword "for" 
+19:60 variable "i" declaration,readonly
+19:62 keyword "in" 
+19:65 number "0" 
+19:68 number "1" 
+19:73 keyword "break" 
+19:78 label "@" 
+19:79 label "loop" 
+21:5 keyword "val" 
+21:9 property "s" declaration,readonly
+21:13 string "\"" 
+21:14 string "a" 
+21:19 string "b" 
+21:24 string "\"" 
+23:5 keyword "companion" 
+23:15 keyword "object" 
+24:9 keyword "fun" 
+24:13 method "create" declaration
+24:23 type "C" 
+24:25 type "String" 
+24:35 class "C" 
+24:37 number "1" 
+24:40 string "\"" 
+24:41 string "\"" 
+24:44 number "2" 
+27:5 comment "// one" 
+28:5 comment "// two" 
+29:5 comment "// three" 
+32:1 keyword "interface" 
+32:11 interface "Iface" declaration
+33:1 keyword "annotation" 
+33:12 keyword "class" 
+33:18 decorator "Ann" declaration
+34:1 keyword "object" 
+34:8 class "Single" declaration,static
+34:17 keyword "val" 
+34:21 property "x" declaration,readonly
+34:25 number "1" 
+36:1 keyword "enum" 
+36:6 keyword "class" 
+36:12 enum "E" declaration
+36:16 enumMember "A" declaration,readonly,static
+36:19 enumMember "B" declaration,readonly,static
+36:23 keyword "override" 
+36:32 keyword "fun" 
+36:36 method "toString" declaration
+36:49 string "\"" 
+36:50 string "b" 
+36:51 string "\"" 
+38:1 keyword "typealias" 
+38:11 type "Names" declaration
+38:19 type "List" 
+38:24 type "String" 
+40:1 keyword "fun" 
+40:6 typeParameter "R" declaration
+40:9 type "String" 
+40:16 function "ext" declaration
+40:20 parameter "block" declaration,readonly
+40:28 type "String" 
+40:39 type "R" 
+40:43 type "R" 
+41:5 keyword "val" 
+41:10 variable "a" declaration,readonly
+41:13 variable "b" declaration,readonly
+41:18 class "Pair" 
+41:23 number "1" 
+41:26 number "2" 
+42:5 keyword "val" 
+42:9 variable "local" declaration,readonly
+42:17 function "h" 
+42:19 parameter "name" 
+42:26 number "1" 
+43:5 keyword "when" 
+44:9 number "1" 
+45:9 keyword "else" 
+47:5 keyword "return" 
+47:12 function "block" 
+47:18 keyword "this" 
+50:1 keyword "val" 
+50:5 property "raw" declaration,readonly
+50:11 string "\"\"\"" 
+51:1 string "    multi" 
+52:1 string "    line" 
+53:1 string "\"\"\"" 
+== selection
+19:11-19:12 "x"
+19:11-19:20 "x: a.B<T>"
+19:10-19:37 "(x: a.B<T>, vararg ys: Int)"
+19:5-19:85 "fun f(x: a.B<T>, vararg ys: Int): List<T…"
+16:70-30:2 "{\n    constructor(s: String) : this(1, s…"
+15:1-30:2 "@Deprecated(\"use D\")\nclass C<T : Any>(va…"
+1:1-54:1 "/**\n * A KDoc comment\n * over lines.\n */…"
