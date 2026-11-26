@@ -1,8 +1,8 @@
 package features
 
 import (
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/format"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/format"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // FormatOptions returns the formatter's options for the file at path:

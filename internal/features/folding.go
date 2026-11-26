@@ -3,8 +3,8 @@ package features
 import (
 	"slices"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // FoldingRanges returns the regions a client may fold: the import list,

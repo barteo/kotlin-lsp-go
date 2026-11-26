@@ -5,8 +5,8 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/barteo/kotlin-compiler-go/internal/classpath"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-compiler-go/analysis"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // applyText returns text with LSP edits made, positions as UTF-16.
@@ -32,7 +32,7 @@ func applyText(t *testing.T, text string, edits []protocol.TextEdit) string {
 // TestFormattingAndMoves drives formatting, and the edits of moving a
 // file to another package, through the protocol.
 func TestFormattingAndMoves(t *testing.T) {
-	if _, err := classpath.FindStdlib(); err != nil {
+	if _, err := analysis.FindStdlib(); err != nil {
 		t.Skipf("no kotlin-stdlib.jar (set KOTLIN_HOME): %v", err)
 	}
 	root, _ := filepath.EvalSymlinks(t.TempDir())

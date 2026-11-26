@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // applyEdits returns text with edits, which don't overlap, made.

@@ -1,7 +1,7 @@
 {
-  "name": "kotlin-compiler-go",
-  "description": "Plugins from the kc Kotlin compiler repository",
-  "owner": { "name": "kotlin-compiler-go" },
+  "name": "kotlin-lsp-go",
+  "description": "kcls, the Kotlin language server built on the kc compiler",
+  "owner": { "name": "kotlin-lsp-go" },
   "plugins": [
     {
       "name": "kcls",
@@ -9,7 +9,7 @@
       "description": "Kotlin code intelligence (kcls) for .kt and .kts files",
       "version": "0.0.1",
       "license": "Apache-2.0",
-      "homepage": "https://github.com/barteo/kotlin-compiler-go/tree/main/editors/claude-code",
+      "homepage": "https://github.com/barteo/kotlin-lsp-go/tree/main/editors/claude-code",
       "keywords": ["kotlin", "lsp", "language-server"],
       "category": "development"
     }

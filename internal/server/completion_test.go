@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/barteo/kotlin-compiler-go/internal/classpath"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-compiler-go/analysis"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // TestCompletion drives completion, its resolve and signature help
 // through the protocol, on an open document being edited.
 func TestCompletion(t *testing.T) {
-	if _, err := classpath.FindStdlib(); err != nil {
+	if _, err := analysis.FindStdlib(); err != nil {
 		t.Skipf("no kotlin-stdlib.jar (set KOTLIN_HOME): %v", err)
 	}
 	root, _ := filepath.EvalSymlinks(t.TempDir())

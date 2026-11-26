@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/jsonrpc"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/features"
+	"github.com/barteo/kotlin-lsp-go/internal/jsonrpc"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // actions answers textDocument/inlayHint and textDocument/codeAction.

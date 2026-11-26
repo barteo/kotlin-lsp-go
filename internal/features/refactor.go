@@ -6,8 +6,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // extractVariable returns the refactoring that declares the expression

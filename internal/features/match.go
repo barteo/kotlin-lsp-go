@@ -7,8 +7,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // MatchScore scores how well name matches a workspace-symbol query, and

@@ -10,8 +10,8 @@ package features
 import (
 	"strings"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // File is a parsed document.

@@ -8,19 +8,19 @@ edit.
 ## Install
 
 Put `kcls` on `PATH`; the plugin runs it by name. A
-[release](https://github.com/barteo/kotlin-compiler-go/releases)'s
+[release](https://github.com/barteo/kotlin-lsp-go/releases)'s
 archive for your platform has it, next to `kc`; or build it:
 
 ```sh
-go install github.com/barteo/kotlin-compiler-go/cmd/kcls@latest
+go install github.com/barteo/kotlin-lsp-go/cmd/kcls@latest
 ```
 
 Then, in Claude Code, add this repository's marketplace and install the
 plugin:
 
 ```
-/plugin marketplace add barteo/kotlin-compiler-go
-/plugin install kcls@kotlin-compiler-go
+/plugin marketplace add barteo/kotlin-lsp-go
+/plugin install kcls@kotlin-lsp-go
 ```
 
 From a clone, `/plugin marketplace add ./` in its root does the same, and

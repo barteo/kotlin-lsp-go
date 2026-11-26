@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/barteo/kotlin-compiler-go/internal/classpath"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-compiler-go/analysis"
+	"github.com/barteo/kotlin-lsp-go/internal/features"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // diskFiles reads files from disk, parsing each once per modification.
@@ -59,7 +59,7 @@ func write(t *testing.T, root string, files map[string]string) {
 
 func needStdlib(t *testing.T) string {
 	t.Helper()
-	jar, err := classpath.FindStdlib()
+	jar, err := analysis.FindStdlib()
 	if err != nil {
 		t.Skipf("no kotlin-stdlib.jar (set KOTLIN_HOME): %v", err)
 	}

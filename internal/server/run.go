@@ -8,12 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/jsonrpc"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/project"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/features"
+	"github.com/barteo/kotlin-lsp-go/internal/jsonrpc"
+	"github.com/barteo/kotlin-lsp-go/internal/project"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // codeLens answers textDocument/codeLens: the run lenses, from the psi
@@ -72,16 +71,13 @@ func (s *Server) prepareRun(ctx context.Context, args []json.RawMessage) (any, e
 	return plan, nil
 }
 
-// kc returns the kc binary runs compile with: Options.KC, else this
-// binary if it is kc (kc -lsp), else kc next to it, else kc on PATH.
+// kc returns the kc binary runs compile with: Options.KC, else kc next
+// to this binary, else kc on PATH.
 func (s *Server) kc() string {
 	if s.opts.KC != "" {
 		return s.opts.KC
 	}
 	if exe, err := os.Executable(); err == nil {
-		if strings.TrimSuffix(filepath.Base(exe), ".exe") == "kc" {
-			return exe
-		}
 		if p := filepath.Join(filepath.Dir(exe), "kc"); isFile(p) {
 			return p
 		}

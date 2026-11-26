@@ -1,4 +1,5 @@
 ==== fixes.kt
+== 4:1  unresolved import: kotlin.collections.ArrayList
 == 21:1  class 'Person' is not abstract and does not implement abstract member 'greet'
   Implement members [quickfix] (preferred)
     21:23-22:1 "\n" -> "\n    override fun greet(other: String): String {\n        TODO(\"Not yet implemented\")\n    }\n\n    override val name: String\n        get() = TODO(\"Not yet implemented\")\n"

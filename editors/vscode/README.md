@@ -39,7 +39,7 @@ What it does (see [docs/lsp.md](../../docs/lsp.md)):
 ## Install
 
 From the VS Code Marketplace or Open VSX (*Kotlin (kcls)*), or from a
-[release](https://github.com/barteo/kotlin-compiler-go/releases): each
+[release](https://github.com/barteo/kotlin-lsp-go/releases): each
 has the extension for Linux and macOS, amd64 and arm64, with `kcls` and
 `kc` in it.
 
@@ -54,7 +54,7 @@ cd editors/vscode
 npm install
 mkdir -p server
 go build -o server/kcls ../../cmd/kcls
-go build -o server/kc ../../cmd/kc
+go build -o server/kc github.com/barteo/kotlin-compiler-go/cmd/kc
 npx vsce package
 code --install-extension kcls-*.vsix
 ```
@@ -69,7 +69,7 @@ the one on `PATH`.
 | Setting | Meaning |
 |---|---|
 | `kcls.path` | the server binary (default: the bundled one, else `kcls` on `PATH`) |
-| `kcls.args` | extra server arguments; `["-lsp"]` with `kcls.path` set to `kc` runs kc's built-in server |
+| `kcls.args` | extra server arguments |
 | `kcls.trace.server` | `messages` or `verbose` traces the protocol in the output channel |
 | `kcls.hints.types` | inlay hints for inferred types (default `true`) |
 | `kcls.hints.parameterNames` | parameter name hints: `literals` (default), `all` or `none` |

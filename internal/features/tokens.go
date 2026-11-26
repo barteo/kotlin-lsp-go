@@ -1,8 +1,8 @@
 package features
 
 import (
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // The semantic token types and modifiers kcls reports, in legend order.

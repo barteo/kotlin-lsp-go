@@ -11,7 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/project"
+	"github.com/barteo/kotlin-lsp-go/internal/project"
 )
 
 // RunEnv is what planning a run needs besides the RunArgs.

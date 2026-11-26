@@ -5,7 +5,7 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // uriPath returns the file path of a file URI.

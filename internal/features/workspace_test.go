@@ -10,9 +10,8 @@ import (
 	"testing"
 
 	"github.com/barteo/kotlin-compiler-go/analysis"
-	"github.com/barteo/kotlin-compiler-go/internal/classpath"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // oneModule is a Searcher over a single analysis.
@@ -39,7 +38,7 @@ func (m oneModule) Search(ctx context.Context, words []string, from string) ([]S
 // the type and call hierarchies, comparing the dump with
 // testdata/workspace/<dir>.golden.
 func TestWorkspaceGolden(t *testing.T) {
-	jar, err := classpath.FindStdlib()
+	jar, err := analysis.FindStdlib()
 	if err != nil {
 		t.Skipf("no kotlin-stdlib.jar (set KOTLIN_HOME): %v", err)
 	}

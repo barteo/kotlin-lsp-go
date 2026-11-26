@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/jsonrpc"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/features"
+	"github.com/barteo/kotlin-lsp-go/internal/jsonrpc"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // completion answers textDocument/completion, completionItem/resolve and

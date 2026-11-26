@@ -6,8 +6,8 @@ import (
 	"unicode"
 
 	"github.com/barteo/kotlin-compiler-go/analysis"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // Key identifies a declaration in every analysis that sees it: a source

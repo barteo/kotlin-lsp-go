@@ -3,14 +3,14 @@
 //	kcls [-stdio] [-listen addr] [-log file] [-version]
 //
 // It speaks the Language Server Protocol on stdin and stdout, or on a TCP
-// address with -listen. kc -lsp runs the same server. See docs/lsp.md.
+// address with -listen. See docs/lsp.md.
 package main
 
 import (
 	"os"
 	"runtime/debug"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/server"
+	"github.com/barteo/kotlin-lsp-go/internal/server"
 )
 
 // version is the release this kcls was built as; the release workflow

@@ -1,7 +1,7 @@
 # kcls: a Kotlin language server on kc
 
 `kcls` is a Language Server Protocol server for Kotlin, built on kc's
-[`psi`](psi.md) parser and its checker. The goal is to match JetBrains'
+[`psi`](https://github.com/barteo/kotlin-compiler-go/blob/main/docs/psi.md) parser and its checker. The goal is to match JetBrains'
 [kotlin-lsp](https://github.com/Kotlin/kotlin-lsp) feature for feature,
 for VS Code and for coding agents such as Claude Code. kotlin-lsp is
 IntelliJ running headless, needs JDK 25 and takes seconds to start; kcls
@@ -18,20 +18,25 @@ bin/kcls            # LSP on stdin and stdout
 bin/kcls -listen :9999   # LSP on TCP, as kotlin-lsp's default port
 ```
 
-`kc -lsp` runs the same server, so a release's `kc` binary is also the
-language server. Logs go to stderr, or to the file `-log` names.
+Logs go to stderr, or to the file `-log` names. Running `main`
+functions and tests outside Gradle and Maven compiles with
+[kc](https://github.com/barteo/kotlin-compiler-go):
 
-Each [release](https://github.com/barteo/kotlin-compiler-go/releases)
-has, for Linux and macOS on amd64 and arm64, an archive with `kc` and
-`kcls`, and the VS Code extension with both in it
-(`kcls-darwin-arm64-<release>.vsix`); a release that isn't a
-prerelease also goes to the VS Code Marketplace and Open VSX.
+```sh
+go install github.com/barteo/kotlin-compiler-go/cmd/kc@latest
+```
+
+Each [release](https://github.com/barteo/kotlin-lsp-go/releases) has,
+for Linux and macOS on amd64 and arm64, an archive with `kcls` and the
+`kc` that go.mod requires, and the VS Code extension with both in it
+(`kcls-darwin-arm64-<release>.vsix`); a release that isn't a prerelease
+also goes to the VS Code Marketplace and Open VSX.
 
 - **VS Code:** [editors/vscode](../editors/vscode/README.md).
 - **Claude Code:** [editors/claude-code](../editors/claude-code/README.md),
   installed from this repository's marketplace:
-  `/plugin marketplace add barteo/kotlin-compiler-go`, then
-  `/plugin install kcls@kotlin-compiler-go`.
+  `/plugin marketplace add barteo/kotlin-lsp-go`, then
+  `/plugin install kcls@kotlin-lsp-go`.
 - **Other editors:** run `kcls` as a stdio language server for the
   `kotlin` language and `.kt` and `.kts` files.
 
@@ -240,8 +245,8 @@ How the server behaves:
     path: the JUnit Platform's console launcher
     (`junit-platform-console-standalone`), JUnit 4's `JUnitCore` (a
     whole class) or TestNG. Argument files keep the class path off the
-    command line. kc is the binary running the server, when that is
-    `kc -lsp`, else `kc` next to `kcls`, else `kc` on `PATH`.
+    command line. kc is the `kc` next to `kcls`, else the one on
+    `PATH`.
 - A request that fails, even with a panic, is answered with an error, and
   the server keeps serving.
 
@@ -269,7 +274,7 @@ kcls finds a workspace folder's modules in the first of:
    library kc adds by default.
 2. **A Gradle build** (`settings.gradle(.kts)` or `build.gradle(.kts)`).
    kcls runs the build's `gradlew`, or `gradle` on `PATH`, with the init
-   script [kcls-model.init.gradle.kts](../internal/lsp/project/kcls-model.init.gradle.kts).
+   script [kcls-model.init.gradle.kts](../internal/project/kcls-model.init.gradle.kts).
    The script compiles nothing. For each Kotlin/JVM compile task it
    writes the sources, class path, JDK, JVM target, explicit API mode,
    opt-ins and compiler plugins, and it resolves the libraries' sources
@@ -339,7 +344,7 @@ kcls's cache is in the user cache directory (`~/Library/Caches/kcls`,
 ## Performance
 
 [bench/lsp](../bench/lsp/main.go) drives a `kcls` process over stdio as
-an editor does, on a module of 200 files [bench/gen](../bench/gen/main.go)
+an editor does, on a module of 200 files [bench/gen](https://github.com/barteo/kotlin-compiler-go/blob/main/bench/gen/main.go)
 writes, or on any workspace (`-root`): the start to the first diagnostics
 of the opened file, a body edit to its diagnostics, completion after
 each member access's dot, go to definition, and the server's resident
@@ -373,18 +378,18 @@ two analyses of the module alive while one replaces the other.
 ## Design
 
 ```
-editor ──stdio/TCP──▶ cmd/kcls (or kc -lsp)
-  internal/lsp/jsonrpc   framing, dispatch, cancellation
-  internal/lsp/protocol  LSP 3.17 types, byte offset ↔ position Mapper
-  internal/lsp/server    lifecycle, documents, dispatch
-  internal/lsp/project   workspace model: kcls.json, Gradle, folder
-  internal/lsp/engine    module analyses, cancellation, library sources
-  internal/lsp/features  one file per feature, over a psi snapshot and
+editor ──stdio/TCP──▶ cmd/kcls
+  internal/jsonrpc       framing, dispatch, cancellation
+  internal/protocol      LSP 3.17 types, byte offset ↔ position Mapper
+  internal/server        lifecycle, documents, dispatch
+  internal/project       workspace model: kcls.json, Gradle, folder
+  internal/engine        module analyses, cancellation, library sources
+  internal/features      one file per feature, over a psi snapshot and
                          a module's analysis
 ```
 
-The server has no dependencies outside the standard library, like the
-rest of kc. The protocol types are written by hand for the methods kcls
+The server depends on nothing but kc's module (its `psi` and `analysis`
+packages) and the standard library. The protocol types are written by hand for the methods kcls
 serves.
 
 Semantic features analyze a module with `analysis.Library`, which keeps
@@ -439,11 +444,11 @@ Still to come from kc:
 
 ## Tests
 
-- `go test ./internal/lsp/...` runs the unit tests and the end-to-end
+- `go test ./...` runs the unit tests and the end-to-end
   tests. The latter drive a server through a scripted client over pipes:
   the lifecycle, editing, pushed and pulled diagnostics, and files read
   from disk.
-- `internal/lsp/features/testdata/*.golden` records each feature's output
+- `internal/features/testdata/*.golden` records each feature's output
   for the `.kt` files next to it. `testdata/semantic/<dir>.golden`
   records, for each module directory, the diagnostics, and the hover,
   definitions and highlights at each `/*|*/` caret, and the semantic
@@ -456,24 +461,25 @@ Still to come from kc:
   `testdata/actions/<dir>.golden` records each diagnostic's quick fixes,
   the intentions at each word, and organize imports, with their edits.
   Check a change, then
-  accept it with `go test ./internal/lsp/features -update`.
-- `internal/lsp/format/testdata/<name>.golden` is `<name>.kt` formatted.
-  `TestWhitespaceOnly` formats every Kotlin file of the repository and
+  accept it with `go test ./internal/features -update`.
+- `internal/format/testdata/<name>.golden` is `<name>.kt` formatted.
+  `TestWhitespaceOnly` formats every Kotlin file of this repository and
+  of the kotlin-compiler-go module go.mod requires, and
   checks that only whitespace changes and that formatting again changes
-  nothing. `KCLS_FORMAT_CORPUS=<dir> go test ./internal/lsp/format -run
+  nothing. `KCLS_FORMAT_CORPUS=<dir> go test ./internal/format -run
   Corpus -v` reports the lines formatting changes in formatted code,
   such as the stdlib's sources (`kotlin-stdlib-sources.jar`, unzipped).
-- `TestRunMain` (`internal/lsp/features`) builds kc, plans a run lens of
+- `TestRunMain` (`internal/features`) builds kc, plans a run lens of
   a module with Kotlin, Java and resources, and runs it with the JDK;
   `-short` skips it.
-- `TestMavenModel` (`internal/lsp/project`) reads a reactor's effective
+- `TestMavenModel` (`internal/project`) reads a reactor's effective
   POM and the dependency plugin's log, written in Maven's formats, into
-  modules. `TestRoots` (`internal/lsp/engine`) links two workspace
+  modules. `TestRoots` (`internal/engine`) links two workspace
   folders.
-- `KCLS_MAVEN_TEST=1 go test ./internal/lsp/project -run ImportMaven`
+- `KCLS_MAVEN_TEST=1 go test ./internal/project -run ImportMaven`
   imports a two-module Maven build. It needs Maven (`KCLS_MAVEN` names
   the binary) and the help and dependency plugins, cached or online.
-- `KCLS_GRADLE_TEST=1 go test ./internal/lsp/project -run Gradle` imports
+- `KCLS_GRADLE_TEST=1 go test ./internal/project -run Gradle` imports
   a two-project Gradle build. It needs Gradle (`KCLS_GRADLE` names the
   binary) and the Kotlin Gradle plugin, cached or online.
 - `cd editors/vscode && npm test` compiles the extension and tokenizes a

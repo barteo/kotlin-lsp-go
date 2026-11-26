@@ -12,8 +12,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/jsonrpc"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/jsonrpc"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // client is a scripted LSP client connected to a Server.

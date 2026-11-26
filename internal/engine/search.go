@@ -10,7 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
+	"github.com/barteo/kotlin-lsp-go/internal/features"
 )
 
 // Texts is implemented by a Files that knows the text of the documents

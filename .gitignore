@@ -1,0 +1,5 @@
+bin/
+*.test
+/dist/
+go.work
+go.work.sum

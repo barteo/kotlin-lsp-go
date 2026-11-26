@@ -17,7 +17,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/barteo/kotlin-compiler-go/internal/classpath"
+	"github.com/barteo/kotlin-compiler-go/analysis"
 )
 
 // Workspace is the modules of a workspace folder.
@@ -307,7 +307,7 @@ func withStdlib(cp []string) []string {
 			return cp
 		}
 	}
-	jar, err := classpath.FindStdlib()
+	jar, err := analysis.FindStdlib()
 	if err != nil {
 		return cp
 	}
@@ -318,7 +318,7 @@ func withStdlib(cp []string) []string {
 // the one /usr/libexec/java_home names: an editor started from the Dock
 // has no JAVA_HOME. It returns "" if there is none.
 func FindJDK() string {
-	if jdk, err := classpath.FindJDK(); err == nil {
+	if jdk, err := analysis.FindJDK(); err == nil {
 		return jdk
 	}
 	if runtime.GOOS == "darwin" {

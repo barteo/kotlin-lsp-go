@@ -10,9 +10,8 @@ import (
 	"testing"
 
 	"github.com/barteo/kotlin-compiler-go/analysis"
-	"github.com/barteo/kotlin-compiler-go/internal/classpath"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // testCompleter analyzes a module's files with one of them replaced.
@@ -62,7 +61,7 @@ func (c *testCompleter) LibraryClasses(ctx context.Context, path string, match f
 // testdata/completion/<dir>, a module, the markers removed, and dumps
 // the first items, comparing the dump with testdata/completion/<dir>.golden.
 func TestCompletionGolden(t *testing.T) {
-	jar, err := classpath.FindStdlib()
+	jar, err := analysis.FindStdlib()
 	if err != nil {
 		t.Skipf("no kotlin-stdlib.jar (set KOTLIN_HOME): %v", err)
 	}

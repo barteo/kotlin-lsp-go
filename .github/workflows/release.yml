@@ -1,0 +1,264 @@
+name: Release
+
+# Builds kcls and the kc that go.mod requires (runs compile with it) for
+# Linux and macOS, on amd64 and arm64, smoke-tests each build on its own
+# platform, and packages the VS Code extension for each platform with both
+# binaries in it. A pushed release tag also publishes the archives, the
+# extensions and their SHA256SUMS as a GitHub release, and, for a release
+# that isn't a prerelease, the extensions to the VS Code Marketplace and
+# Open VSX when the repository has their tokens as the VSCE_PAT and
+# OVSX_PAT secrets.
+#
+# A release is tagged v<major>.<minor>.<patch>, such as v0.1.0, which is
+# also the extension's version; a suffix, such as v0.2.0-rc.1, makes a
+# prerelease, whose extension is 0.2.0. Run by hand (workflow_dispatch),
+# it builds and tests only, and leaves the archives as the run's
+# artifacts.
+#
+# kcls and kc are pure Go, so one runner cross-compiles every platform.
+
+on:
+  push:
+    tags: ['v[0-9]+.[0-9]+.[0-9]+*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  LANG: C.UTF-8
+  LC_ALL: C.UTF-8
+
+jobs:
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      extension: ${{ steps.version.outputs.extension }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Version
+        id: version
+        run: |
+          ext=0.0.0
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version=$GITHUB_REF_NAME
+            if ! [[ $version =~ ^v([0-9]+\.[0-9]+\.[0-9]+)(-[0-9A-Za-z.]+)?$ ]]; then
+              echo "::error::tag $version isn't v<major>.<minor>.<patch>[-<prerelease>], such as v0.1.0"
+              exit 1
+            fi
+            ext=${BASH_REMATCH[1]}
+          else
+            version=dev-${GITHUB_SHA::12}
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "extension=$ext" >> "$GITHUB_OUTPUT"
+          echo "kc=$(go list -m -f '{{.Version}}' github.com/barteo/kotlin-compiler-go)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and package
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+          VERSION: ${{ steps.version.outputs.version }}
+          KC_VERSION: ${{ steps.version.outputs.kc }}
+        run: |
+          name=kcls_${VERSION}_${GOOS}_${GOARCH}
+          mkdir -p "dist/$name"
+          go build -trimpath -ldflags "-s -w -X main.version=$VERSION" -o "dist/$name/kcls" ./cmd/kcls
+          go build -trimpath -ldflags "-s -w -X main.version=$KC_VERSION" -o "dist/$name/kc" github.com/barteo/kotlin-compiler-go/cmd/kc
+          cp README.md LICENSE "dist/$name/"
+          tar -C dist -czf "dist/$name.tar.gz" "$name"
+          echo "ARCHIVE=$name.tar.gz" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: kcls_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/${{ env.ARCHIVE }}
+          if-no-files-found: error
+
+  # On a runner of each platform, kcls answers initialize, and kc compiles
+  # and runs a program.
+  smoke-test:
+    name: Smoke test (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: build
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64, runner: ubuntu-latest }
+          - { goos: linux, goarch: arm64, runner: ubuntu-24.04-arm }
+          - { goos: darwin, goarch: amd64, runner: macos-15-intel }
+          - { goos: darwin, goarch: arm64, runner: macos-latest }
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+    steps:
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@v6
+        with:
+          name: kcls_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist
+
+      - name: kc compiles and runs a program
+        run: |
+          tar -C dist -xzf "dist/kcls_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz"
+          kc=dist/kcls_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}/kc
+          echo "KC=$kc" >> "$GITHUB_ENV"
+          "$kc" -version
+          # No Kotlin install on the runner: the program needs no stdlib.
+          printf 'fun main() {\n    var sum = 0\n    for (i in 1..3) sum += i\n    System.out.println(sum)\n}\n' > "$RUNNER_TEMP/main.kt"
+          "$kc" -d "$RUNNER_TEMP/out" "$RUNNER_TEMP/main.kt"
+          test "$(java -cp "$RUNNER_TEMP/out" MainKt)" = 6
+
+      - name: kcls answers initialize
+        run: |
+          kcls=$(dirname "$KC")/kcls
+          "$kcls" -version | grep -F "kcls $VERSION"
+          # A client waits for each answer: the pauses stand in for that.
+          msg() { printf 'Content-Length: %d\r\n\r\n%s' "${#1}" "$1"; }
+          {
+            msg '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"processId":null,"rootUri":null,"capabilities":{}}}'
+            sleep 2
+            msg '{"jsonrpc":"2.0","id":2,"method":"shutdown"}'
+            sleep 1
+            msg '{"jsonrpc":"2.0","method":"exit"}'
+          } | "$kcls" > "$RUNNER_TEMP/kcls.out"
+          grep -F '"name":"kcls"' "$RUNNER_TEMP/kcls.out"
+
+  # The VS Code extension for each platform, with its kcls and kc.
+  vsix:
+    name: VS Code extension (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64, target: linux-x64 }
+          - { goos: linux, goarch: arm64, target: linux-arm64 }
+          - { goos: darwin, goarch: amd64, target: darwin-x64 }
+          - { goos: darwin, goarch: arm64, target: darwin-arm64 }
+    env:
+      VERSION: ${{ needs.build.outputs.version }}
+      EXTENSION: ${{ needs.build.outputs.extension }}
+    defaults:
+      run:
+        working-directory: editors/vscode
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: editors/vscode/package-lock.json
+      - uses: actions/download-artifact@v6
+        with:
+          name: kcls_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist
+
+      - name: Package
+        run: |
+          name=kcls_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}
+          tar -C "$GITHUB_WORKSPACE/dist" -xzf "$GITHUB_WORKSPACE/dist/$name.tar.gz"
+          mkdir -p server
+          cp "$GITHUB_WORKSPACE/dist/$name/kc" "$GITHUB_WORKSPACE/dist/$name/kcls" server/
+          npm ci
+          npm pkg set version="$EXTENSION"
+          npm run package -- --target ${{ matrix.target }} --out "kcls-${{ matrix.target }}-$VERSION.vsix"
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: vsix_${{ matrix.target }}
+          path: editors/vscode/kcls-${{ matrix.target }}-${{ needs.build.outputs.version }}.vsix
+          if-no-files-found: error
+
+  publish:
+    name: Publish the release
+    needs: [build, smoke-test, vsix]
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: kcls_*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: vsix_*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum kcls_*.tar.gz kcls-*.vsix > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          flags=()
+          if ! [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            flags+=(--prerelease)
+          fi
+          gh release create "$TAG" dist/kcls_*.tar.gz dist/kcls-*.vsix dist/SHA256SUMS \
+            --verify-tag --title "kcls $TAG" --generate-notes "${flags[@]}"
+
+      # A prerelease's extensions are on its release page only.
+      - name: Publish the extensions
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! [[ $TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "$TAG is a prerelease: not published to the marketplaces"
+            exit 0
+          fi
+          for vsix in dist/kcls-*.vsix; do
+            if [ -n "$VSCE_PAT" ]; then
+              npx --yes @vscode/vsce@3 publish --packagePath "$vsix" --pat "$VSCE_PAT"
+            fi
+            if [ -n "$OVSX_PAT" ]; then
+              npx --yes ovsx@0.10 publish "$vsix" --pat "$OVSX_PAT"
+            fi
+          done
+          if [ -z "$VSCE_PAT$OVSX_PAT" ]; then
+            echo "no VSCE_PAT or OVSX_PAT secret: the extensions are on the release page only"
+          fi

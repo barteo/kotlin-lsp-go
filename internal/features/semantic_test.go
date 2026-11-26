@@ -9,9 +9,8 @@ import (
 	"testing"
 
 	"github.com/barteo/kotlin-compiler-go/analysis"
-	"github.com/barteo/kotlin-compiler-go/internal/classpath"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // caret marks a position in a semantic test source: the position right
@@ -24,7 +23,7 @@ const caret = "/*|*/"
 // definition, type definition and highlights, comparing the dump with
 // testdata/semantic/<dir>.golden.
 func TestSemanticGolden(t *testing.T) {
-	jar, err := classpath.FindStdlib()
+	jar, err := analysis.FindStdlib()
 	if err != nil {
 		t.Skipf("no kotlin-stdlib.jar (set KOTLIN_HOME): %v", err)
 	}

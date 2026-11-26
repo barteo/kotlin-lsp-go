@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/project"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/project"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // TestRunTargets finds main functions and tests.
@@ -147,7 +147,7 @@ func TestPlanRun(t *testing.T) {
 }
 
 // TestRunMain compiles and runs a main function as a run lens does, with
-// kc built from this repository and the JDK.
+// kc built from the kotlin-compiler-go module go.mod requires, and the JDK.
 func TestRunMain(t *testing.T) {
 	if testing.Short() || runtime.GOOS == "windows" {
 		t.Skip("builds kc")
@@ -158,7 +158,7 @@ func TestRunMain(t *testing.T) {
 	}
 	dir := t.TempDir()
 	kc := filepath.Join(dir, "kc")
-	if out, err := exec.Command("go", "build", "-o", kc, "../../../cmd/kc").CombinedOutput(); err != nil {
+	if out, err := exec.Command("go", "build", "-o", kc, "github.com/barteo/kotlin-compiler-go/cmd/kc").CombinedOutput(); err != nil {
 		t.Fatalf("building kc: %v\n%s", err, out)
 	}
 	root := filepath.Join(dir, "my project")

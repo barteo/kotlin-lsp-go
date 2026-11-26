@@ -13,7 +13,7 @@ import (
 )
 
 // Main runs the language server as the command name with args, as
-// cmd/kcls and kc -lsp do, and returns the process's exit code.
+// cmd/kcls does, and returns the process's exit code.
 //
 //	kcls [-stdio] [-listen addr] [-log file] [-version]
 //

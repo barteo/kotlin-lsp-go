@@ -35,9 +35,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/jsonrpc"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/jsonrpc"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 var (
@@ -91,7 +91,7 @@ func run() error {
 	dir := *root
 	if dir == "" {
 		dir = filepath.Join(tmp, "src")
-		if out, err := exec.Command("go", "run", "./bench/gen", "-n", strconv.Itoa(*gen), "-o", dir).CombinedOutput(); err != nil {
+		if out, err := exec.Command("go", "run", "github.com/barteo/kotlin-compiler-go/bench/gen", "-n", strconv.Itoa(*gen), "-o", dir).CombinedOutput(); err != nil {
 			return fmt.Errorf("generating sources: %v\n%s", err, out)
 		}
 	}

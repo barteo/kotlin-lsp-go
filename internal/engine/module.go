@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/barteo/kotlin-compiler-go/analysis"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/project"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/features"
+	"github.com/barteo/kotlin-lsp-go/internal/project"
 )
 
 // module is a module the engine analyzes.

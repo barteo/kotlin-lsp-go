@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/features"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 // document is a file the server knows: one the client opened, whose text

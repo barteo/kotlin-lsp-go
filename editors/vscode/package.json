@@ -7,7 +7,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/barteo/kotlin-compiler-go",
+    "url": "https://github.com/barteo/kotlin-lsp-go",
     "directory": "editors/vscode"
   },
   "engines": {
@@ -60,7 +60,7 @@
         "kcls.path": {
           "type": "string",
           "default": "",
-          "markdownDescription": "Path to the `kcls` binary. Empty: the binary bundled with the extension, else `kcls` on `PATH`. `kc` works too, with `-lsp` in `#kcls.args#`."
+          "markdownDescription": "Path to the `kcls` binary. Empty: the binary bundled with the extension, else `kcls` on `PATH`."
         },
         "kcls.args": {
           "type": "array",

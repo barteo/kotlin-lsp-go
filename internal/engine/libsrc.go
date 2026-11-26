@@ -13,8 +13,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
 	"github.com/barteo/kotlin-compiler-go/psi"
+	"github.com/barteo/kotlin-lsp-go/internal/features"
 )
 
 // librarySources finds library declarations in sources jars, which it

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -58,12 +59,16 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-// TestWhitespaceOnly formats every Kotlin file of the repository and
-// checks that only whitespace changed, and that formatting again changes
-// nothing.
+// TestWhitespaceOnly formats every Kotlin file of this repository and of
+// the kotlin-compiler-go module go.mod requires, and checks that only
+// whitespace changed, and that formatting again changes nothing.
 func TestWhitespaceOnly(t *testing.T) {
+	out, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", "github.com/barteo/kotlin-compiler-go").Output()
+	if err != nil {
+		t.Fatalf("go list: %v", err)
+	}
 	var files []string
-	filepath.WalkDir("../../..", func(p string, d os.DirEntry, err error) error {
+	walk := func(p string, d os.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
@@ -74,7 +79,9 @@ func TestWhitespaceOnly(t *testing.T) {
 			files = append(files, p)
 		}
 		return nil
-	})
+	}
+	filepath.WalkDir("../..", walk)
+	filepath.WalkDir(strings.TrimSpace(string(out)), walk)
 	if len(files) < 100 {
 		t.Fatalf("only %d Kotlin files", len(files))
 	}

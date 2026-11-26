@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 var update = flag.Bool("update", false, "rewrite the .golden files")

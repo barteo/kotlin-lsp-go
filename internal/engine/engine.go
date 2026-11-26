@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/features"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/project"
+	"github.com/barteo/kotlin-lsp-go/internal/features"
+	"github.com/barteo/kotlin-lsp-go/internal/project"
 )
 
 // Files gives the engine the text of files: the client's for a file it

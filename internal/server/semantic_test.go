@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/barteo/kotlin-compiler-go/internal/classpath"
-	"github.com/barteo/kotlin-compiler-go/internal/lsp/protocol"
+	"github.com/barteo/kotlin-compiler-go/analysis"
+	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
 
 func writeFiles(t *testing.T, root string, files map[string]string) {
@@ -43,7 +43,7 @@ func position(uri protocol.DocumentURI, p protocol.Position) protocol.TextDocume
 // TestSemantic drives the semantic features through the protocol on a
 // workspace of two modules described by a kcls.json.
 func TestSemantic(t *testing.T) {
-	if _, err := classpath.FindStdlib(); err != nil {
+	if _, err := analysis.FindStdlib(); err != nil {
 		t.Skipf("no kotlin-stdlib.jar (set KOTLIN_HOME): %v", err)
 	}
 	root, _ := filepath.EvalSymlinks(t.TempDir())
@@ -132,7 +132,7 @@ func TestSemantic(t *testing.T) {
 // TestPullDiagnostics checks semantic diagnostics pulled by the client,
 // and the refresh request after a change on disk.
 func TestPullDiagnostics(t *testing.T) {
-	if _, err := classpath.FindStdlib(); err != nil {
+	if _, err := analysis.FindStdlib(); err != nil {
 		t.Skipf("no kotlin-stdlib.jar (set KOTLIN_HOME): %v", err)
 	}
 	root, _ := filepath.EvalSymlinks(t.TempDir())
