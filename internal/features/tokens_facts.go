@@ -1,6 +1,8 @@
 package features
 
 import (
+	"cmp"
+	"slices"
 	"strings"
 
 	"github.com/barteo/kotlin-compiler-go/analysis"
@@ -12,6 +14,21 @@ type resolved struct {
 	a          *Analysis
 	f          *File
 	deprecated map[int]bool // the offsets of deprecated uses
+	facts      []brief      // of the file's references and type references, by node
+}
+
+// brief is what classify reads of a reference's or a type reference's
+// fact, copied out of Result.Facts, whose facts are only valid while it
+// calls its function.
+type brief struct {
+	node      psi.NodeID
+	symbol    uint32
+	typeName  string // "" if the fact has no type
+	hasType   bool
+	typeParam bool
+	callName  string
+	hasCall   bool
+	receiver  bool // the call has a receiver
 }
 
 func newResolved(a *Analysis, f *File) *resolved {
@@ -21,11 +38,34 @@ func newResolved(a *Analysis, f *File) *resolved {
 			r.deprecated[f.offset(d.Line, d.Column)] = true
 		}
 	}
+	// One pass over the file's facts, in node order, rather than a copy
+	// of each fact a name looks up.
+	a.Result.Facts(f.Snapshot.ID(), func(fa *analysis.Fact) bool {
+		switch f.Snapshot.Node(fa.Element.Node).NumericKind() {
+		case psi.KindREFERENCE_EXPRESSION, psi.KindUSER_TYPE:
+		default:
+			return true
+		}
+		b := brief{node: fa.Element.Node, symbol: fa.Symbol}
+		if fa.Type != nil {
+			b.hasType, b.typeName, b.typeParam = true, fa.Type.Name, fa.Type.Parameter
+		}
+		if fa.Call != nil {
+			b.hasCall, b.callName, b.receiver = true, fa.Call.Name, fa.Call.Receiver != nil
+		}
+		r.facts = append(r.facts, b)
+		return true
+	})
 	return r
 }
 
-func (r *resolved) fact(n psi.NodeRef) (analysis.Fact, bool) {
-	return r.a.Result.Fact(analysis.ElementID{Snapshot: r.f.Snapshot.ID(), Node: n.ID()})
+// fact returns what the fact of the reference or type reference n says.
+func (r *resolved) fact(n psi.NodeRef) (brief, bool) {
+	i, ok := slices.BinarySearchFunc(r.facts, n.ID(), func(b brief, id psi.NodeID) int { return cmp.Compare(b.node, id) })
+	if !ok {
+		return brief{}, false
+	}
+	return r.facts[i], true
 }
 
 // classify refines the syntactic classification typ, mods, ok of an
@@ -54,15 +94,15 @@ func (r *resolved) classify(id psi.NodeRef, typ, mods uint32, ok bool) (uint32, 
 		if ok && typ == tNamespace {
 			return typ, mods, ok
 		}
-		if fa, found := r.fact(up); found && fa.Type != nil {
-			if fa.Type.Parameter {
+		if fa, found := r.fact(up); found && fa.hasType {
+			if fa.typeParam {
 				return tTypeParameter, 0, true
 			}
-			if cls, found := r.a.Class(fa.Type.Name); found {
+			if cls, found := r.a.Class(fa.typeName); found {
 				return r.symbol(id, cls, typ, mods, ok)
 			}
-			if fa.Type.Name != "" && !inAnnotation(up) {
-				return tClass, r.libraryMods(id, fa.Type.Name), true
+			if fa.typeName != "" && !inAnnotation(up) {
+				return tClass, r.libraryMods(id, fa.typeName), true
 			}
 		}
 		return typ, mods, ok
@@ -72,17 +112,17 @@ func (r *resolved) classify(id psi.NodeRef, typ, mods uint32, ok bool) (uint32, 
 		return typ, mods, ok
 	}
 	switch {
-	case fa.Symbol != 0:
-		sym, _ := r.a.Result.Symbol(fa.Symbol)
+	case fa.symbol != 0:
+		sym, _ := r.a.Result.Symbol(fa.symbol)
 		return r.symbol(id, sym, typ, mods, ok)
-	case fa.Call != nil:
+	case fa.hasCall:
 		t := uint32(tFunction)
-		if strings.HasSuffix(fa.Call.Name, ".<init>") {
+		if strings.HasSuffix(fa.callName, ".<init>") {
 			t = tClass
-		} else if fa.Call.Receiver != nil {
+		} else if fa.receiver {
 			t = tMethod
 		}
-		return t, r.libraryMods(id, fa.Call.Name), true
+		return t, r.libraryMods(id, fa.callName), true
 	}
 	return typ, mods, ok
 }
