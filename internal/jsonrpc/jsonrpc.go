@@ -234,7 +234,7 @@ func (c *Conn) request(ctx context.Context, req *Request) {
 			cancel()
 		}()
 		result, err := c.safeHandle(rctx, req)
-		if err == nil && rctx.Err() != nil && ctx.Err() == nil {
+		if (err == nil || errors.Is(err, context.Canceled)) && rctx.Err() != nil && ctx.Err() == nil {
 			err = &Error{Code: CodeRequestCancelled, Message: "request cancelled"}
 		}
 		c.reply(req.ID, result, err)
