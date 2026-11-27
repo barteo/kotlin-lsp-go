@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -113,6 +114,44 @@ func TestCancel(t *testing.T) {
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("cancelled call didn't return")
+	}
+}
+
+func TestCancelReply(t *testing.T) {
+	started := make(chan struct{})
+	inR, inW := io.Pipe()
+	outR, outW := io.Pipe()
+	server := NewConn(inR, outW, func(ctx context.Context, c *Conn, r *Request) (any, error) {
+		close(started)
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}, t.Logf)
+	ctx, cancel := context.WithCancel(context.Background())
+	go server.Run(ctx)
+	t.Cleanup(func() {
+		cancel()
+		inW.Close()
+		outR.Close()
+		<-server.Done()
+	})
+	send := func(s string) {
+		if _, err := io.WriteString(inW, "Content-Length: "+strconv.Itoa(len(s))+"\r\n\r\n"+s); err != nil {
+			t.Fatal(err)
+		}
+	}
+	send(`{"jsonrpc":"2.0","id":7,"method":"slow"}`)
+	<-started
+	send(`{"jsonrpc":"2.0","method":"$/cancelRequest","params":{"id":7}}`)
+	b, err := readFrame(bufio.NewReader(outR))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m wire
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	if m.Error == nil || m.Error.Code != CodeRequestCancelled {
+		t.Fatalf("reply = %s, want code %d", b, CodeRequestCancelled)
 	}
 }
 
