@@ -14,9 +14,10 @@
 // budget (the -max flags).
 //
 // The budgets guard against regressions: they are what kcls does now on
-// a laptop (bench/results/lsp.md), with room. They are not the goals: a
-// body edit's diagnostics in under 100 ms takes a session that checks
-// only the edited bodies, and each edit checks the whole module now.
+// a laptop (bench/results/lsp.md), with room. A body edit checks its
+// file only (an incremental update), and completion its file against
+// the others' signatures; the start, which checks the module whole, is
+// slower on fewer CPUs.
 package main
 
 import (
@@ -51,10 +52,10 @@ var (
 	check    = flag.Bool("check", false, "exit 1 if a measurement is over its budget")
 	logFile  = flag.String("log", "", "write the server's stderr, its log, to this file")
 	maxStart = flag.Duration("max-start", 3*time.Second, "budget: start to the opened file's first diagnostics")
-	maxEdit  = flag.Duration("max-edit", 2*time.Second, "budget: p95 of a body edit to its diagnostics")
-	maxComp  = flag.Duration("max-completion", time.Second, "budget: p95 of completion")
+	maxEdit  = flag.Duration("max-edit", 600*time.Millisecond, "budget: p95 of a body edit to its diagnostics")
+	maxComp  = flag.Duration("max-completion", 600*time.Millisecond, "budget: p95 of completion")
 	maxDef   = flag.Duration("max-definition", 300*time.Millisecond, "budget: p95 of go to definition")
-	maxRSS   = flag.Int("max-rss", 2560, "budget: resident memory after the measurements, in MB")
+	maxRSS   = flag.Int("max-rss", 2048, "budget: resident memory after the measurements, in MB")
 	maxGrow  = flag.Float64("max-growth", 0.25, "budget: memory growth over the soak, as a fraction of the memory after warming up")
 )
 
