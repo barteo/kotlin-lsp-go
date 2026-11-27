@@ -74,8 +74,9 @@ type Engine struct {
 	roots   []*root
 	singles map[string]*module // single-file modules, by path
 
-	searchMu sync.Mutex
-	searched []*module // modules searches analyzed, most recent first
+	searchMu  sync.Mutex
+	searched  []*module   // modules searches analyzed, most recent first
+	freeTimer *time.Timer // returns released analyses' memory; nil if never
 }
 
 // root is a workspace folder.
@@ -114,6 +115,11 @@ func New(opts Options) *Engine {
 // Close cancels the engine's work and releases its class paths.
 func (e *Engine) Close() {
 	e.stop()
+	e.searchMu.Lock()
+	if e.freeTimer != nil {
+		e.freeTimer.Stop()
+	}
+	e.searchMu.Unlock()
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	for _, r := range e.roots {

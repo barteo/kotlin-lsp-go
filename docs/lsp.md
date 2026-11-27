@@ -94,7 +94,8 @@ How the server behaves:
   for in their own file only, and the overrides of a member are looked
   for only if it can be overridden: not in an object, a companion object
   or a final class. Of the modules a search analyzed that have no open
-  document, only the two most recent keep their analysis. A
+  document, only the two most recent keep their analysis, and the
+  memory of the others is returned to the system. A
   reference counts if it resolves to the same declaration, so a
   same-named declaration in another module or class isn't one. A class's
   references include its constructor calls, type references and

@@ -3,9 +3,11 @@ package engine
 import (
 	"context"
 	"os"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -145,11 +147,36 @@ func (e *Engine) keepSearched(ms []*module) {
 		e.searched = slices.Clip(e.searched[:keep])
 	}
 	e.searchMu.Unlock()
+	released := false
 	for _, m := range drop {
-		if !e.hasOpen(m) {
-			m.release()
+		if !e.hasOpen(m) && m.release() {
+			released = true
 		}
 	}
+	if released {
+		e.freeLater()
+	}
+}
+
+// freeDelay is how long after a search released analyses their memory is
+// returned to the system: the request that made them still uses them.
+const freeDelay = 5 * time.Second
+
+// freeLater returns the memory of released analyses to the system after
+// freeDelay, once for releases that come close together. The runtime
+// would return it only bit by bit, over minutes.
+func (e *Engine) freeLater() {
+	e.searchMu.Lock()
+	defer e.searchMu.Unlock()
+	if e.freeTimer != nil {
+		e.freeTimer.Reset(freeDelay)
+		return
+	}
+	e.freeTimer = time.AfterFunc(freeDelay, func() {
+		if e.ctx.Err() == nil {
+			debug.FreeOSMemory()
+		}
+	})
 }
 
 // hasOpen reports whether the client opened one of the module's own
