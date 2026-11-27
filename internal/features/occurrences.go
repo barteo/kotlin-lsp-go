@@ -209,14 +209,11 @@ func Occurrences(a *Analysis, f *File, k Key) []Occurrence {
 	if af == nil || !k.Valid() {
 		return nil
 	}
-	id := func(n psi.NodeRef) analysis.ElementID {
-		return analysis.ElementID{Snapshot: af.Snapshot.ID(), Node: n.ID()}
-	}
 	var out []Occurrence
 	add := func(n psi.NodeRef, kind int) { out = append(out, Occurrence{File: af, Node: n, Kind: kind}) }
 	// Cache the keys of the symbols seen: a file refers to few.
 	keys := map[uint32]Key{}
-	symKey := func(fa analysis.Fact) Key {
+	symKey := func(fa *analysis.Fact) Key {
 		if kk, ok := keys[fa.Symbol]; ok {
 			return kk
 		}
@@ -231,6 +228,33 @@ func Occurrences(a *Analysis, f *File, k Key) []Occurrence {
 		}
 		return kk.Lib == k.Lib
 	}
+	// The type references and references whose facts name k, from one
+	// pass over the file's facts, which Facts doesn't copy: the walk
+	// below would copy the fact of each reference it meets.
+	hits := map[psi.NodeID]bool{}
+	a.Result.Facts(af.Snapshot.ID(), func(fa *analysis.Fact) bool {
+		switch af.Snapshot.Node(fa.Element.Node).NumericKind() {
+		case psi.KindUSER_TYPE:
+			if k.Kind == "class" && k.FQ != "" && fa.Type != nil && fa.Type.Name == k.FQ {
+				hits[fa.Element.Node] = true
+			}
+		case psi.KindREFERENCE_EXPRESSION:
+			var kk Key
+			switch {
+			case fa.Symbol != 0:
+				kk = symKey(fa)
+			case fa.Call != nil:
+				kk = callKey(fa.Call)
+			default:
+				return true
+			}
+			// A class's secondary constructor's calls are the class's.
+			if matches(kk) || k.Kind == "class" && kk.Kind == "constructor" && kk.Class == k.Class && k.Class != "" {
+				hits[fa.Element.Node] = true
+			}
+		}
+		return true
+	})
 	psi.WalkNodes(af.Snapshot.RootNode(), func(n psi.NodeRef) bool {
 		if n.IsLeaf() {
 			return false
@@ -253,11 +277,9 @@ func Occurrences(a *Analysis, f *File, k Key) []Occurrence {
 				}
 			}
 		case kind == psi.KindUSER_TYPE:
-			if k.Kind == "class" && k.FQ != "" {
-				if fa, ok := a.Result.Fact(id(n)); ok && fa.Type != nil && fa.Type.Name == k.FQ {
-					if ref := n.ChildKind(psi.KindREFERENCE_EXPRESSION); ref.Valid() {
-						add(ref, OccurrenceRead)
-					}
+			if hits[n.ID()] {
+				if ref := n.ChildKind(psi.KindREFERENCE_EXPRESSION); ref.Valid() {
+					add(ref, OccurrenceRead)
 				}
 			}
 		case kind == psi.KindREFERENCE_EXPRESSION:
@@ -267,24 +289,7 @@ func Occurrences(a *Analysis, f *File, k Key) []Occurrence {
 				}
 				return false
 			}
-			fa, ok := a.Result.Fact(id(n))
-			if !ok {
-				return true
-			}
-			var kk Key
-			switch {
-			case fa.Symbol != 0:
-				kk = symKey(fa)
-			case fa.Call != nil:
-				kk = callKey(fa.Call)
-			default:
-				return true
-			}
-			match := matches(kk)
-			if !match && k.Kind == "class" && kk.Kind == "constructor" && kk.Class == k.Class && k.Class != "" {
-				match = true // a secondary constructor's call
-			}
-			if match {
+			if hits[n.ID()] {
 				kind := OccurrenceRead
 				if isAssigned(n) {
 					kind = OccurrenceWrite

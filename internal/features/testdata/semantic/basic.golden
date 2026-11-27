@@ -1,6 +1,7 @@
 ==== shapes.kt
 == diagnostics
 26:67-26:80 info unsupported:unsupported types in signature [{ it.area() }]: 'maxByOrNull' uses types kc doesn't support
+26:69-26:71 error  [it]: unresolved reference: it
 == names
 1: shapes=namespace
 8: Shape=interface.declaration
@@ -12,7 +13,7 @@
 21: Square=class.declaration side=property.declaration.readonly Double=class.defaultLibrary Shape=interface
 22: name=property.declaration.readonly String=class.defaultLibrary
 23: area=method.declaration Double=class.defaultLibrary side=property.readonly side=property.readonly
-26: T=typeParameter.declaration Shape=interface largest=function.declaration shapes=parameter.declaration.readonly List=class.defaultLibrary T=typeParameter T=typeParameter shapes=parameter.readonly maxByOrNull=function it=parameter area=function
+26: T=typeParameter.declaration Shape=interface largest=function.declaration shapes=parameter.declaration.readonly List=class.defaultLibrary T=typeParameter T=typeParameter shapes=parameter.readonly maxByOrNull=function area=function
 ==== use.kt
 == diagnostics
 15:10-15:19 error  [undefined]: unresolved reference: undefined

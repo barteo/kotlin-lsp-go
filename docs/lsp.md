@@ -360,11 +360,11 @@ On the generated module (201 Kotlin files, File100.kt opened, 403 lines), linux/
 | measurement | median | result | budget |
 |---|---|---|---|
 | start to first diagnostics | — | 3.46 s | 3.00 s |
-| body edit to diagnostics, p95 of 20 | 352 ms | 444 ms | 600 ms |
-| completion, p95 of 30 | 223 ms | 283 ms | 600 ms |
-| definition, p95 of 30 | 1 ms | 4 ms | 300 ms |
-| resident memory | — | 1110 MB | 2048 MB |
-| memory growth over a 10m0s soak (80 rounds) | 1110 → 1181 MB, peak 1181 MB | +6% | +25% |
+| body edit to diagnostics, p95 of 20 | 353 ms | 389 ms | 600 ms |
+| completion, p95 of 30 | 234 ms | 298 ms | 600 ms |
+| definition, p95 of 30 | 1 ms | 17 ms | 300 ms |
+| resident memory | — | 628 MB | 2048 MB |
+| memory growth over a 10m0s soak (78 rounds) | 628 → 672 MB, peak 715 MB | +7% | +25% |
 
 The budgets catch regressions, at what kcls does now with room to spare
 (the start's is an 8-CPU laptop's, where it takes 1.3 s). A body edit
@@ -375,9 +375,12 @@ lowering and resolving the other files' signatures again, which a
 session keeping them between updates would save. Completion checks its
 file against the other files' signatures. The memory is the Go heap
 with the garbage collector's room, with the session's last result and
-the one replacing it alive.
+the one replacing it alive: about 300 MB live, of which kc's facts are a
+third since kc stores them compactly (it was 1110 MB, 550 MB live,
+before). Features that look at every name of a file (occurrences,
+semantic tokens) read its facts in one pass without copying them.
 [bench/results/lsp.md](../bench/results/lsp.md) has the numbers from
-before incremental updates.
+before compact facts and before incremental updates.
 
 ## Design
 

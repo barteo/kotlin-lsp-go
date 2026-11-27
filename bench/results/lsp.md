@@ -1,8 +1,25 @@
 # kcls performance
 
-`go run ./bench/lsp -soak 10m -check`, 2026-11-26, with incremental
-updates (kotlin-compiler-go 188c92f). On the generated module (201 Kotlin
+`go run ./bench/lsp -soak 10m -check`, 2026-11-27, with kc's compact
+facts (kotlin-compiler-go 81b663e) and occurrences and semantic tokens
+reading facts without copying them. On the generated module (201 Kotlin
 files, File100.kt opened, 403 lines), linux/amd64, 4 CPUs:
+
+| measurement | median | result | budget |
+|---|---|---|---|
+| start to first diagnostics | — | 3.46 s **over** | 3.00 s |
+| body edit to diagnostics, p95 of 20 | 353 ms | 389 ms | 600 ms |
+| completion, p95 of 30 | 234 ms | 298 ms | 600 ms |
+| definition, p95 of 30 | 1 ms | 17 ms | 300 ms |
+| resident memory | — | 628 MB | 2048 MB |
+| memory growth over a 10m0s soak (78 rounds) | 628 → 672 MB, peak 715 MB | +7% | +25% |
+
+A soak's live heap is about 305 MB, of which kc's facts are 92 MB; the
+rest is mostly the other files' lowered signatures, parse trees and the
+session's incremental state.
+
+Before compact facts, 2026-11-26, with incremental updates
+(kotlin-compiler-go 188c92f), on the same machine:
 
 | measurement | median | result | budget |
 |---|---|---|---|
