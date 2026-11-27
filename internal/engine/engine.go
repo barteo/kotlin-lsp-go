@@ -55,6 +55,10 @@ type Options struct {
 	// without a file event; 0 means 2 seconds. Agents create files
 	// without telling the server.
 	SourcesTTL time.Duration
+	// KeepSearched is how many modules without an open document keep
+	// the analysis a search made of them, for the next search; 0 means
+	// 2, a negative number none. The others' analyses are released.
+	KeepSearched int
 }
 
 // Engine analyzes the modules of workspaces.
@@ -70,8 +74,8 @@ type Engine struct {
 	roots   []*root
 	singles map[string]*module // single-file modules, by path
 
-	textMu sync.Mutex
-	texts  map[string]cachedText // files' texts for searches
+	searchMu sync.Mutex
+	searched []*module // modules searches analyzed, most recent first
 }
 
 // root is a workspace folder.
@@ -98,8 +102,11 @@ func New(opts Options) *Engine {
 	if opts.SourcesTTL == 0 {
 		opts.SourcesTTL = 2 * time.Second
 	}
+	if opts.KeepSearched == 0 {
+		opts.KeepSearched = 2
+	}
 	ctx, stop := context.WithCancel(context.Background())
-	e := &Engine{opts: opts, logf: opts.Logf, ctx: ctx, stop: stop, singles: map[string]*module{}, texts: map[string]cachedText{}, symbols: newSymbolIndex()}
+	e := &Engine{opts: opts, logf: opts.Logf, ctx: ctx, stop: stop, singles: map[string]*module{}, symbols: newSymbolIndex()}
 	e.libs = newLibrarySources(filepath.Join(opts.CacheDir, "sources"), opts.Logf)
 	return e
 }

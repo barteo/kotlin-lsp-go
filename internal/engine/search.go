@@ -6,7 +6,6 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -35,20 +34,23 @@ func (e *Engine) Search(ctx context.Context, words []string, from string) ([]Sco
 	type cand struct {
 		m     *module
 		paths []string
+		open  bool // the client opened one of its files
 	}
 	var cands []cand
 	for _, m := range mods {
-		var paths []string
+		c := cand{m: m}
 		for _, p := range m.sources()[m.pm] {
 			if !strings.HasSuffix(p, ".kt") {
 				continue
 			}
-			if text, ok := e.text(p); ok && containsWord(text, words) {
-				paths = append(paths, p)
+			text, open, ok := e.text(p)
+			c.open = c.open || open
+			if ok && containsWord(text, words) {
+				c.paths = append(c.paths, p)
 			}
 		}
-		if len(paths) > 0 {
-			cands = append(cands, cand{m, paths})
+		if len(c.paths) > 0 {
+			cands = append(cands, c)
 		}
 	}
 	scopes := make([]Scope, len(cands))
@@ -74,6 +76,13 @@ func (e *Engine) Search(ctx context.Context, words []string, from string) ([]Sco
 		})
 	}
 	wg.Wait()
+	var searched []*module
+	for _, c := range cands {
+		if !c.open {
+			searched = append(searched, c.m)
+		}
+	}
+	e.keepSearched(searched)
 	var out []Scope
 	for i, s := range scopes {
 		if errs[i] != nil {
@@ -119,38 +128,59 @@ func (e *Engine) searchModules(ctx context.Context, from string) ([]*module, err
 	return out, nil
 }
 
-// text returns the text of the file at path: the client's if it opened
-// it, else the file on disk, which is read again when it changes.
-func (e *Engine) text(path string) (string, bool) {
-	if t, ok := e.opts.Files.(Texts); ok {
-		if s, ok := t.OpenText(path); ok {
-			return s, true
+// keepSearched releases the analyses of the modules searches analyzed,
+// but those of the KeepSearched most recent and of the modules with an
+// open document, so that a search across the workspace doesn't keep it
+// all in memory. ms are the modules a search just analyzed.
+func (e *Engine) keepSearched(ms []*module) {
+	keep := max(e.opts.KeepSearched, 0)
+	e.searchMu.Lock()
+	for _, m := range ms {
+		e.searched = slices.DeleteFunc(e.searched, func(x *module) bool { return x == m })
+	}
+	e.searched = append(slices.Clone(ms), e.searched...)
+	var drop []*module
+	if len(e.searched) > keep {
+		drop = slices.Clone(e.searched[keep:])
+		e.searched = slices.Clip(e.searched[:keep])
+	}
+	e.searchMu.Unlock()
+	for _, m := range drop {
+		if !e.hasOpen(m) {
+			m.release()
 		}
 	}
-	fi, err := os.Stat(path)
-	if err != nil {
-		return "", false
+}
+
+// hasOpen reports whether the client opened one of the module's own
+// files.
+func (e *Engine) hasOpen(m *module) bool {
+	t, ok := e.opts.Files.(Texts)
+	if !ok {
+		return false
 	}
-	e.textMu.Lock()
-	c, ok := e.texts[path]
-	e.textMu.Unlock()
-	if ok && c.mod.Equal(fi.ModTime()) && c.size == fi.Size() {
-		return c.text, true
+	for _, p := range m.sources()[m.pm] {
+		if _, ok := t.OpenText(p); ok {
+			return true
+		}
+	}
+	return false
+}
+
+// text returns the text of the file at path, and whether it is the
+// client's: the text of the document if the client opened it, else the
+// file on disk. It isn't kept, so that searches don't hold every file's.
+func (e *Engine) text(path string) (text string, open, ok bool) {
+	if t, ok := e.opts.Files.(Texts); ok {
+		if s, ok := t.OpenText(path); ok {
+			return s, true, true
+		}
 	}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return "", false
+		return "", false, false
 	}
-	e.textMu.Lock()
-	e.texts[path] = cachedText{text: string(b), mod: fi.ModTime(), size: fi.Size()}
-	e.textMu.Unlock()
-	return string(b), true
-}
-
-type cachedText struct {
-	text string
-	mod  time.Time
-	size int64
+	return string(b), false, true
 }
 
 // containsWord reports whether text has one of words, not as part of a

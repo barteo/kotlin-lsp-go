@@ -187,3 +187,163 @@ func dumpWorkspace(t *testing.T, a *Analysis, files []*File) string {
 	}
 	return b.String()
 }
+
+// countingSearcher records the words of each search.
+type countingSearcher struct {
+	Searcher
+	searches [][]string
+}
+
+func (c *countingSearcher) Search(ctx context.Context, words []string, from string) ([]Scope, error) {
+	c.searches = append(c.searches, words)
+	return c.Searcher.Search(ctx, words, from)
+}
+
+// TestReferencesScope checks that the references, rename and
+// implementations of a declaration only its file can refer to, or of a
+// member nothing can override, don't search the workspace, and that
+// those of an open member still find its overrides' references.
+func TestReferencesScope(t *testing.T) {
+	lib := stdlibLibrary(t)
+	dir := t.TempDir()
+	srcs := map[string]string{
+		"A.kt": `package p
+
+class FooViewModel(handle: Map<String, String>) {
+    private val url: String by lazy { checkNotNull(handle[URL_ARG]) }
+
+    private companion object {
+        const val URL_ARG = "url"
+    }
+}
+
+class Plain private constructor(val shown: Int) {
+    private fun secret() = 1
+    fun useSecret() = secret()
+    fun finalMember() = 2
+}
+
+object Single {
+    fun member() = 3
+}
+
+open class Base {
+    open fun greet() = "base"
+}
+
+private fun hidden() = 4
+fun useHidden() = hidden()
+`,
+		"B.kt": `package p
+
+class Derived : Base() {
+    override fun greet() = "derived"
+}
+
+fun calls(b: Base, d: Derived, p: Plain) {
+    b.greet()
+    d.greet()
+    p.finalMember()
+    p.shown
+    Single.member()
+    hidden()
+}
+`,
+	}
+	for name, src := range srcs {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a, files := analyzeDir(t, lib, dir)
+	byName := map[string]*File{}
+	for _, f := range files {
+		byName[filepath.Base(f.Snapshot.Path())] = f
+	}
+	ctx := context.Background()
+	// at returns the position of the n-th (from 0) occurrence of sub in
+	// the file name.
+	at := func(name, sub string, n int) (*File, protocol.Position) {
+		f := byName[name]
+		text, off := f.Mapper.Text(), -1
+		for i := 0; i <= n; i++ {
+			j := strings.Index(text[off+1:], sub)
+			if j < 0 {
+				t.Fatalf("no %q #%d in %s", sub, n, name)
+			}
+			off += 1 + j
+		}
+		return f, f.Mapper.Position(off)
+	}
+	where := func(locs []protocol.Location) []string {
+		var out []string
+		for _, l := range locs {
+			out = append(out, fmt.Sprintf("%s:%d", filepath.Base(string(l.URI)), l.Range.Start.Line+1))
+		}
+		return out
+	}
+	for _, tc := range []struct {
+		name     string
+		file     string
+		sub      string
+		n        int
+		refs     []string   // where the references are, with the declaration
+		searches [][]string // the words searched, in order
+	}{
+		{"private companion const", "A.kt", "URL_ARG", 1, []string{"A.kt:4", "A.kt:7"}, nil},
+		{"private companion const at use", "A.kt", "URL_ARG", 0, []string{"A.kt:4", "A.kt:7"}, nil},
+		{"private member", "A.kt", "secret", 0, []string{"A.kt:12", "A.kt:13"}, nil},
+		{"private top-level", "A.kt", "hidden", 0, []string{"A.kt:25", "A.kt:26"}, nil},
+		{"private class's member", "A.kt", "url", 0, []string{"A.kt:4"}, nil},
+		{"final class's member", "A.kt", "finalMember", 0, []string{"A.kt:14", "B.kt:10"}, [][]string{{"finalMember"}}},
+		{"private constructor's property", "A.kt", "shown", 0, []string{"A.kt:11", "B.kt:11"}, [][]string{{"shown"}}},
+		{"object's member", "A.kt", "member", 0, []string{"A.kt:18", "B.kt:12"}, [][]string{{"member"}}},
+		{"open member", "A.kt", "greet", 0, []string{"A.kt:22", "B.kt:8", "B.kt:9"}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := &countingSearcher{Searcher: oneModule{a, files}}
+			f, p := at(tc.file, tc.sub, tc.n)
+			locs, err := References(ctx, s, a, f, p, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := where(locs); !slices.Equal(got, tc.refs) {
+				t.Errorf("references: got %v, want %v", got, tc.refs)
+			}
+			if tc.name == "open member" {
+				if !slices.ContainsFunc(s.searches, func(w []string) bool { return slices.Equal(w, []string{"Base"}) }) {
+					t.Errorf("open member's subclasses not searched: %v", s.searches)
+				}
+				return
+			}
+			if !slices.EqualFunc(s.searches, tc.searches, slices.Equal) {
+				t.Errorf("searches: got %v, want %v", s.searches, tc.searches)
+			}
+		})
+	}
+	t.Run("rename and implementations", func(t *testing.T) {
+		s := &countingSearcher{Searcher: oneModule{a, files}}
+		f, p := at("A.kt", "URL_ARG", 1)
+		edit, err := Rename(ctx, s, a, f, p, "ARG")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if n := len(edit.Changes[f.URI]); n != 2 || len(edit.Changes) != 1 {
+			t.Errorf("rename edits: %+v", edit.Changes)
+		}
+		for _, sub := range []string{"finalMember", "Plain", "member", "Single"} {
+			f, p := at("A.kt", sub, 0)
+			if impls, err := Implementations(ctx, s, a, f, p); err != nil || len(impls) != 0 {
+				t.Errorf("implementations of %s: %v %v", sub, impls, err)
+			}
+		}
+		if len(s.searches) != 0 {
+			t.Errorf("searches: %v", s.searches)
+		}
+		f, p = at("A.kt", "greet", 0)
+		impls, err := Implementations(ctx, s, a, f, p)
+		if err != nil || !slices.Equal(where(impls), []string{"B.kt:4"}) {
+			t.Errorf("implementations of greet: %v %v", where(impls), err)
+		}
+	})
+}

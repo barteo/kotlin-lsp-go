@@ -126,6 +126,7 @@ func (m *module) close() {
 	if m.running != nil {
 		m.running.cancel()
 	}
+	m.last, m.lastKey = nil, nil
 	m.mu.Unlock()
 	m.libMu.Lock()
 	defer m.libMu.Unlock()
@@ -138,6 +139,31 @@ func (m *module) close() {
 		m.lib = nil
 	}
 	m.libErr = errors.New("module closed")
+}
+
+// release forgets the module's last analysis and what its session's
+// next update would start from, unless an analysis is running: the next
+// analysis checks every file again. Its class path stays open.
+func (m *module) release() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.running != nil || m.last == nil {
+		return
+	}
+	m.last, m.lastKey = nil, nil
+	m.libMu.Lock()
+	defer m.libMu.Unlock()
+	if m.sess != nil && m.lib != nil {
+		m.sess.Close()
+		m.sess = m.lib.Session()
+	}
+}
+
+// hasLast reports whether the module keeps an analysis.
+func (m *module) hasLast() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.last != nil
 }
 
 func (m *module) invalidateSources() {

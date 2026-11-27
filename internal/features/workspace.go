@@ -30,15 +30,16 @@ type Scope struct {
 	Files    []*File
 }
 
-// find returns the occurrences of k in the workspace: in f alone for a
-// local, else in the files of the modules that can see it.
+// find returns the occurrences of k in the workspace: in its own file
+// alone for a declaration only that file can refer to, else in the files
+// of the modules that can see it.
 func find(ctx context.Context, s Searcher, a *Analysis, f *File, k Key) ([]Occurrence, error) {
-	if k.Local() {
+	if fileLocal(a, k) {
 		if a == nil {
 			return nil, nil
 		}
-		if f == nil {
-			f = a.File(k.Path)
+		if df := a.File(k.Path); k.Source() && df != nil {
+			f = df
 		}
 		if f == nil {
 			return nil, nil
@@ -66,6 +67,103 @@ func find(ctx context.Context, s Searcher, a *Analysis, f *File, k Key) ([]Occur
 	return out, nil
 }
 
+// declNode returns the node that declares the source declaration k in
+// a's files, if a has its file.
+func declNode(a *Analysis, k Key) psi.NodeRef {
+	if a == nil || !k.Source() {
+		return psi.NodeRef{}
+	}
+	f := a.File(k.Path)
+	if f == nil {
+		return psi.NodeRef{}
+	}
+	return declAt(f, k.Offset)
+}
+
+// fileLocal reports whether only its own file can refer to the
+// declaration k: a local or a parameter, a private declaration, one in a
+// private class, or one declared in a function's or an initializer's
+// code, as a local class's members and an anonymous object's.
+func fileLocal(a *Analysis, k Key) bool {
+	if k.Local() {
+		return true
+	}
+	n := declNode(a, k)
+	if !n.Valid() {
+		return false
+	}
+	for p, self := n, true; p.Valid(); p, self = p.Parent(), false {
+		switch p.NumericKind() {
+		case psi.KindPRIMARY_CONSTRUCTOR:
+			// A private constructor's properties are its class's.
+			if self && hasModifier(p, psi.KindPRIVATE_KEYWORD) {
+				return true
+			}
+		case psi.KindCLASS, psi.KindOBJECT_DECLARATION, psi.KindFUN, psi.KindPROPERTY, psi.KindTYPEALIAS,
+			psi.KindSECONDARY_CONSTRUCTOR, psi.KindVALUE_PARAMETER:
+			if hasModifier(p, psi.KindPRIVATE_KEYWORD) {
+				return true
+			}
+		}
+		if self {
+			continue
+		}
+		switch p.NumericKind() {
+		case psi.KindFUN, psi.KindPROPERTY, psi.KindPROPERTY_ACCESSOR, psi.KindSECONDARY_CONSTRUCTOR,
+			psi.KindCLASS_INITIALIZER, psi.KindLAMBDA_EXPRESSION, psi.KindOBJECT_LITERAL:
+			return true
+		}
+	}
+	return false
+}
+
+// ownerOf returns the class, object or enum entry whose member the
+// declaration n is, as a property of its primary constructor.
+func ownerOf(n psi.NodeRef) psi.NodeRef {
+	p := n.Parent()
+	if n.NumericKind() == psi.KindVALUE_PARAMETER {
+		if ctor := p.Parent(); ctor.NumericKind() == psi.KindPRIMARY_CONSTRUCTOR {
+			return ctor.Parent()
+		}
+		return psi.NodeRef{}
+	}
+	if p.NumericKind() != psi.KindCLASS_BODY {
+		return psi.NodeRef{}
+	}
+	return p.Parent()
+}
+
+// extendable reports whether a class declaration can have subclasses:
+// an interface, or an open, abstract, sealed or enum class.
+func extendable(cls psi.NodeRef) bool {
+	if cls.NumericKind() != psi.KindCLASS {
+		return false // an object, a companion object or an enum entry
+	}
+	return cls.ChildKind(psi.KindINTERFACE_KEYWORD).Valid() || hasModifier(cls, psi.KindOPEN_KEYWORD) ||
+		hasModifier(cls, psi.KindABSTRACT_KEYWORD) || hasModifier(cls, psi.KindSEALED_KEYWORD) ||
+		hasModifier(cls, psi.KindENUM_KEYWORD)
+}
+
+// overridable reports whether another declaration may override the
+// member k: one that is open, abstract or an override that isn't final,
+// or an interface's, and not private nor an object's or a final class's.
+// A member that isn't in a's files, as a library's, may be.
+func overridable(a *Analysis, k Key) bool {
+	n := declNode(a, k)
+	if !n.Valid() {
+		return true
+	}
+	owner := ownerOf(n)
+	if !owner.Valid() {
+		return false // not a member
+	}
+	if hasModifier(n, psi.KindPRIVATE_KEYWORD) || hasModifier(n, psi.KindFINAL_KEYWORD) || !extendable(owner) {
+		return false
+	}
+	return owner.ChildKind(psi.KindINTERFACE_KEYWORD).Valid() || hasModifier(n, psi.KindOPEN_KEYWORD) ||
+		hasModifier(n, psi.KindABSTRACT_KEYWORD) || hasModifier(n, psi.KindOVERRIDE_KEYWORD)
+}
+
 func sortOccurrences(os []Occurrence) {
 	slices.SortFunc(os, func(a, b Occurrence) int {
 		return cmp.Or(strings.Compare(a.File.Snapshot.Path(), b.File.Snapshot.Path()), a.Node.Range().Start-b.Node.Range().Start)
@@ -82,7 +180,7 @@ func References(ctx context.Context, s Searcher, a *Analysis, f *File, pos proto
 	// A member's references include those of the members that override
 	// it: a call of an override may be a call of it.
 	keys := []Key{k}
-	if k.Class != "" && (k.Kind == "function" || k.Kind == "property") {
+	if k.Class != "" && (k.Kind == "function" || k.Kind == "property") && overridable(a, k) {
 		decls, err := overriders(ctx, s, k)
 		if err != nil {
 			return nil, err
@@ -219,6 +317,9 @@ func related(ctx context.Context, s Searcher, a *Analysis, k Key) ([]Key, error)
 	}
 	// Down: their overrides.
 	for _, kk := range slices.Clone(keys) {
+		if !overridable(a, kk) {
+			continue
+		}
 		decls, err := overriders(ctx, s, kk)
 		if err != nil {
 			return nil, err
@@ -321,8 +422,10 @@ func Implementations(ctx context.Context, s Searcher, a *Analysis, f *File, pos 
 	var err error
 	switch {
 	case k.Kind == "class":
-		decls, err = subclasses(ctx, s, k, false)
-	case k.Class != "" && (k.Kind == "function" || k.Kind == "property"):
+		if n := declNode(a, k); !n.Valid() || extendable(n) {
+			decls, err = subclasses(ctx, s, k, false)
+		}
+	case k.Class != "" && (k.Kind == "function" || k.Kind == "property") && overridable(a, k):
 		decls, err = overriders(ctx, s, k)
 	}
 	if err != nil {

@@ -90,6 +90,11 @@ How the server behaves:
 - **References and rename** look in the modules that can see the
   declaration: its own and those that depend on it. Only the files that
   contain its name as a word are read, and their modules analyzed. A
+  private declaration, one in a private class, and a local are looked
+  for in their own file only, and the overrides of a member are looked
+  for only if it can be overridden: not in an object, a companion object
+  or a final class. Of the modules a search analyzed that have no open
+  document, only the two most recent keep their analysis. A
   reference counts if it resolves to the same declaration, so a
   same-named declaration in another module or class isn't one. A class's
   references include its constructor calls, type references and

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -436,4 +437,86 @@ func TestIncremental(t *testing.T) {
 			t.Errorf("%s: B.kt's diagnostics %q, want %q", st.name, b, st.want)
 		}
 	}
+}
+
+// openFiles is diskFiles with some files the client opened.
+type openFiles struct {
+	diskFiles
+	open map[string]bool
+}
+
+func (o *openFiles) OpenText(path string) (string, bool) {
+	if !o.open[path] {
+		return "", false
+	}
+	b, err := os.ReadFile(path)
+	return string(b), err == nil
+}
+
+// TestSearchReleases checks that a search keeps the analyses of only the
+// KeepSearched first modules it analyzed and of those with an open
+// document, and that a released module is analyzed again on demand.
+func TestSearchReleases(t *testing.T) {
+	needStdlib(t)
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	files := map[string]string{
+		"kcls.json": `{"modules": [
+  {"name": "lib", "roots": ["lib"], "noJdk": true},
+  {"name": "a", "roots": ["a"], "dependsOn": ["lib"], "noJdk": true},
+  {"name": "b", "roots": ["b"], "dependsOn": ["lib"], "noJdk": true},
+  {"name": "c", "roots": ["c"], "dependsOn": ["lib"], "noJdk": true}
+]}`,
+		"lib/L.kt": "package lib\n\nclass Greeter { fun greet() = 1 }\n",
+	}
+	for _, m := range []string{"a", "b", "c"} {
+		files[m+"/U.kt"] = "package " + m + "\n\nimport lib.Greeter\n\nfun use() = Greeter().greet()\n"
+	}
+	write(t, root, files)
+	fs := &openFiles{open: map[string]bool{filepath.Join(root, "c/U.kt"): true}}
+	e := New(Options{Files: fs, CacheDir: t.TempDir(), NoImport: true, Logf: t.Logf, SourcesTTL: time.Hour, KeepSearched: 1})
+	t.Cleanup(e.Close)
+	e.AddRoot(root)
+	ctx := context.Background()
+	mod := func(name string) *module {
+		m, err := e.module(ctx, filepath.Join(root, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	search := func() {
+		t.Helper()
+		scopes, err := e.Search(ctx, []string{"Greeter"}, filepath.Join(root, "lib/L.kt"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var found []string
+		for _, s := range scopes {
+			for _, f := range s.Files {
+				if d := features.Diagnostics(s.Analysis, f); len(d) != 0 {
+					t.Errorf("%s: %+v", f.Snapshot.Path(), d)
+				}
+				found = append(found, filepath.Base(filepath.Dir(f.Snapshot.Path())))
+			}
+		}
+		slices.Sort(found)
+		if !slices.Equal(found, []string{"a", "b", "c", "lib"}) {
+			t.Errorf("found in %v", found)
+		}
+	}
+	search()
+	for name, want := range map[string]bool{"lib/L.kt": true, "a/U.kt": false, "b/U.kt": false, "c/U.kt": true} {
+		if got := mod(name).hasLast(); got != want {
+			t.Errorf("after a search, %s's module keeps its analysis: %v, want %v", name, got, want)
+		}
+	}
+	// A released module is analyzed again, with a new session.
+	a, err := e.Analyze(ctx, filepath.Join(root, "a/U.kt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := features.Diagnostics(a, a.File(filepath.Join(root, "a/U.kt"))); len(d) != 0 {
+		t.Errorf("a after release: %+v", d)
+	}
+	search()
 }
