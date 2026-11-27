@@ -298,14 +298,17 @@ func (m *module) files(path string) (files []*features.File, own []string, err e
 // analyze returns the analysis of the module's current files.
 func (m *module) analyze(ctx context.Context, path string) (*features.Analysis, error) {
 	for {
+		m.e.filesMu.RLock()
 		files, own, err := m.files(path)
 		if err != nil {
+			m.e.filesMu.RUnlock()
 			return nil, err
 		}
 		m.mu.Lock()
 		if m.last != nil && slices.Equal(m.lastKey, files) {
 			a := m.last
 			m.mu.Unlock()
+			m.e.filesMu.RUnlock()
 			return a, nil
 		}
 		r := m.running
@@ -322,6 +325,7 @@ func (m *module) analyze(ctx context.Context, path string) (*features.Analysis, 
 			r = m.start(files, own)
 		}
 		m.mu.Unlock()
+		m.e.filesMu.RUnlock()
 		select {
 		case <-r.done:
 			if first || r.err != nil && errors.Is(r.err, context.Canceled) && ctx.Err() == nil && m.e.ctx.Err() == nil {

@@ -520,3 +520,138 @@ func TestSearchReleases(t *testing.T) {
 	}
 	search()
 }
+
+// releasingFiles is openFiles that forgets the files it read when
+// released, as the server's document store does.
+type releasingFiles struct {
+	openFiles
+}
+
+func (r *releasingFiles) Release(keep map[*features.File]bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for p, f := range r.files {
+		if !r.open[p] && !keep[f] {
+			delete(r.files, p)
+			delete(r.stamp, p)
+		}
+	}
+}
+
+// TestSearchReleasesFiles checks that the files of the modules a search
+// released are forgotten, and that the modules that keep their analysis
+// keep their files, so that a request on them reuses the analysis.
+func TestSearchReleasesFiles(t *testing.T) {
+	needStdlib(t)
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	files := map[string]string{
+		"kcls.json": `{"modules": [
+  {"name": "lib", "roots": ["lib"], "noJdk": true},
+  {"name": "a", "roots": ["a"], "dependsOn": ["lib"], "noJdk": true},
+  {"name": "b", "roots": ["b"], "dependsOn": ["lib"], "noJdk": true},
+  {"name": "c", "roots": ["c"], "dependsOn": ["lib"], "noJdk": true}
+]}`,
+		"lib/L.kt": "package lib\n\nclass Greeter { fun greet() = 1 }\n",
+	}
+	for _, m := range []string{"a", "b", "c"} {
+		files[m+"/U.kt"] = "package " + m + "\n\nimport lib.Greeter\n\nfun use() = Greeter().greet()\n"
+	}
+	write(t, root, files)
+	path := func(name string) string { return filepath.Join(root, name) }
+	fs := &releasingFiles{openFiles{open: map[string]bool{path("c/U.kt"): true}}}
+	e := New(Options{Files: fs, CacheDir: t.TempDir(), NoImport: true, Logf: t.Logf, SourcesTTL: time.Hour, KeepSearched: 1})
+	t.Cleanup(e.Close)
+	e.AddRoot(root)
+	ctx := context.Background()
+	if _, err := e.Search(ctx, []string{"Greeter"}, path("lib/L.kt")); err != nil {
+		t.Fatal(err)
+	}
+	read := func() map[string]*features.File {
+		fs.mu.Lock()
+		defer fs.mu.Unlock()
+		out := map[string]*features.File{}
+		for p, f := range fs.files {
+			rel, _ := filepath.Rel(root, p)
+			out[rel] = f
+		}
+		return out
+	}
+	before := read()
+	e.releaseFiles()
+	after := read()
+	for _, name := range []string{"a/U.kt", "b/U.kt", "lib/L.kt", "c/U.kt"} {
+		if before[name] == nil {
+			t.Fatalf("%s wasn't read by the search", name)
+		}
+	}
+	for name, want := range map[string]bool{"lib/L.kt": true, "c/U.kt": true, "a/U.kt": false, "b/U.kt": false} {
+		if got := after[name] != nil; got != want {
+			t.Errorf("after releasing, %s is kept: %v, want %v", name, got, want)
+		} else if got && after[name] != before[name] {
+			t.Errorf("after releasing, %s was parsed again", name)
+		}
+	}
+	// The modules that keep their analysis reuse it.
+	for _, name := range []string{"lib/L.kt", "c/U.kt"} {
+		st, err := e.Stats(path(name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := e.Analyze(ctx, path(name)); err != nil {
+			t.Fatal(err)
+		}
+		st2, _ := e.Stats(path(name))
+		if st2.Analyses != st.Analyses {
+			t.Errorf("%s analyzed again after releasing files: %d analyses, then %d", name, st.Analyses, st2.Analyses)
+		}
+	}
+	// A released module is analyzed again from its files read again.
+	a, err := e.Analyze(ctx, path("a/U.kt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d := features.Diagnostics(a, a.File(path("a/U.kt"))); len(d) != 0 {
+		t.Errorf("a after releasing: %+v", d)
+	}
+}
+
+// TestWorkspaceSymbolsAfterRelease checks that workspace symbols survive
+// the Files forgetting their parses and follow a file's change.
+func TestWorkspaceSymbolsAfterRelease(t *testing.T) {
+	root, _ := filepath.EvalSymlinks(t.TempDir())
+	write(t, root, map[string]string{"A.kt": "class Alpha\n"})
+	fs := &releasingFiles{}
+	e := New(Options{Files: fs, CacheDir: t.TempDir(), NoImport: true, Logf: t.Logf, SourcesTTL: time.Hour})
+	t.Cleanup(e.Close)
+	e.AddRoot(root)
+	ctx := context.Background()
+	names := func(q string) []string {
+		t.Helper()
+		syms, err := e.WorkspaceSymbols(ctx, q)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, s := range syms {
+			out = append(out, s.Name)
+		}
+		return out
+	}
+	if got := names("Alpha"); !slices.Equal(got, []string{"Alpha"}) {
+		t.Fatalf("symbols: %v", got)
+	}
+	fs.Release(nil)
+	if got := names("Alpha"); !slices.Equal(got, []string{"Alpha"}) {
+		t.Errorf("symbols after release: %v", got)
+	}
+	fs.mu.Lock()
+	n := len(fs.files)
+	fs.mu.Unlock()
+	if n != 0 {
+		t.Errorf("an unchanged file was parsed again for its symbols")
+	}
+	write(t, root, map[string]string{"A.kt": "class Beta\n"})
+	if got := names("Beta"); !slices.Equal(got, []string{"Beta"}) {
+		t.Errorf("symbols after a change: %v", got)
+	}
+}

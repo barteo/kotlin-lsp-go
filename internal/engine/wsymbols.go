@@ -30,7 +30,7 @@ type symbolIndex struct {
 }
 
 type fileSymbols struct {
-	f    *features.File // the parse the symbols are of
+	text string // the text the symbols are of; not its parse, which the Files may forget
 	syms []protocol.SymbolInformation
 }
 
@@ -99,22 +99,24 @@ func (e *Engine) allModules() []*module {
 }
 
 // fileSymbols returns the declarations of the file at path, parsed again
-// only when it changed.
+// only when its text changed.
 func (e *Engine) fileSymbols(path string) []protocol.SymbolInformation {
-	f, err := e.opts.Files.File(path)
-	if err != nil {
-		return nil
-	}
 	ix := e.symbols
 	ix.mu.Lock()
 	c, ok := ix.files[path]
 	ix.mu.Unlock()
-	if ok && c.f == f {
-		return c.syms
+	if ok {
+		if text, _, ok := e.text(path); ok && text == c.text {
+			return c.syms
+		}
+	}
+	f, err := e.opts.Files.File(path)
+	if err != nil {
+		return nil
 	}
 	syms := features.WorkspaceSymbols(f)
 	ix.mu.Lock()
-	ix.files[path] = fileSymbols{f, syms}
+	ix.files[path] = fileSymbols{f.Mapper.Text(), syms}
 	ix.mu.Unlock()
 	return syms
 }

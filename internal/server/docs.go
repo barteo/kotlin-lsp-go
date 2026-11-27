@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/barteo/kotlin-lsp-go/internal/engine"
 	"github.com/barteo/kotlin-lsp-go/internal/features"
 	"github.com/barteo/kotlin-lsp-go/internal/protocol"
 )
@@ -35,6 +36,9 @@ type docStore struct {
 	mu   sync.Mutex
 	docs map[protocol.DocumentURI]*document
 }
+
+// The engine has the store forget the files of the analyses it released.
+var _ engine.Releaser = (*docStore)(nil)
 
 func newDocStore(enc string) *docStore {
 	return &docStore{enc: enc, docs: map[protocol.DocumentURI]*document{}}
@@ -142,6 +146,19 @@ func (s *docStore) OpenText(path string) (string, bool) {
 		return d.text, true
 	}
 	return "", false
+}
+
+// Release forgets the documents read from disk whose parse isn't in
+// keep, for the engine: they are read again when asked for. The
+// documents the client opened stay.
+func (s *docStore) Release(keep map[*features.File]bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k, d := range s.docs {
+		if !d.open && (d.parsed == nil || !keep[d.parsed]) {
+			delete(s.docs, k)
+		}
+	}
 }
 
 // openDocs returns the URIs of the documents the client opened.

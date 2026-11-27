@@ -174,9 +174,49 @@ func (e *Engine) freeLater() {
 	}
 	e.freeTimer = time.AfterFunc(freeDelay, func() {
 		if e.ctx.Err() == nil {
+			e.releaseFiles()
 			debug.FreeOSMemory()
 		}
 	})
+}
+
+// releaseFiles has the Files forget the files it read from disk that no
+// module's analysis uses, as those of the modules searches released:
+// the parses of a workspace's files take more memory than its analyses
+// keep. The files of the analyses kept, and of those running, stay, so
+// that the next request on them reuses their analysis.
+func (e *Engine) releaseFiles() {
+	r, ok := e.opts.Files.(Releaser)
+	if !ok {
+		return
+	}
+	e.mu.Lock()
+	var ms []*module
+	for _, x := range e.roots {
+		for _, m := range x.modules {
+			ms = append(ms, m)
+		}
+	}
+	for _, m := range e.singles {
+		ms = append(ms, m)
+	}
+	e.mu.Unlock()
+	e.filesMu.Lock()
+	defer e.filesMu.Unlock()
+	keep := map[*features.File]bool{}
+	for _, m := range ms {
+		m.mu.Lock()
+		for _, f := range m.lastKey {
+			keep[f] = true
+		}
+		if m.running != nil {
+			for _, f := range m.running.key {
+				keep[f] = true
+			}
+		}
+		m.mu.Unlock()
+	}
+	r.Release(keep)
 }
 
 // hasOpen reports whether the client opened one of the module's own

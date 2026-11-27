@@ -32,6 +32,13 @@ type Files interface {
 	File(path string) (*features.File, error)
 }
 
+// Releaser is implemented by a Files that keeps the files it read from
+// disk. Release forgets those of them whose parse isn't in keep, the
+// files the engine's analyses use; the documents the client opened stay.
+type Releaser interface {
+	Release(keep map[*features.File]bool)
+}
+
 // Options configure an engine.
 type Options struct {
 	Files Files
@@ -73,6 +80,11 @@ type Engine struct {
 	mu      sync.Mutex
 	roots   []*root
 	singles map[string]*module // single-file modules, by path
+
+	// filesMu is held for reading from reading a module's files to
+	// recording the analysis of them, and for writing while files are
+	// released, so that no file an analysis is about to use is released.
+	filesMu sync.RWMutex
 
 	searchMu  sync.Mutex
 	searched  []*module   // modules searches analyzed, most recent first
